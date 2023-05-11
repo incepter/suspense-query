@@ -18,7 +18,7 @@ function useShim<T, R>(promise: Promise<T>) {
 			return (thenable as FiberStateFulfilled<T>).value;
 		}
 		case "rejected": {
-			throw (thenable as FiberStateRejected<R>).reason;
+			throw (thenable as FiberStateRejected<T, R>).reason;
 		}
 		default: {
 			if (typeof thenable.status !== "string") {
@@ -44,7 +44,7 @@ function useShim<T, R>(promise: Promise<T>) {
 						return (thenable as FiberStateFulfilled<T>).value;
 					}
 					case "rejected": {
-						throw (thenable as FiberStateRejected<R>).reason;
+						throw (thenable as FiberStateRejected<T, R>).reason;
 					}
 				}
 			}

@@ -17,13 +17,13 @@ import {
 	isPromise,
 	resolveComponentName,
 } from "./shared";
-import { DATA, PENDING_AWARE, SubscriptionKind } from "./SubscriptionKind";
+import { DATA, PENDING_AWARE, SubscriptionKind } from "./StateFiberFlags";
 
 export type CurrentGlobals = {
 	isRenderPhaseRun: boolean;
 	startTransition: React.TransitionStartFunction;
 };
-export const SuspenseDispatcher: CurrentGlobals = {
+export let SuspenseDispatcher: CurrentGlobals = {
 	isRenderPhaseRun: false,
 	startTransition: React.startTransition,
 };
@@ -34,11 +34,11 @@ export function getOrCreateStateFiber<T, A extends unknown[], R>(
 	options?: StateFiberConfig<T, A, R>
 ) {
 	if (!cache.has(name)) {
-		const fiber = createFiber<T, A, R>(name, options);
+		let fiber = createFiber<T, A, R>(name, options);
 		cache.set(name, fiber);
 		return fiber;
 	}
-	const fiber = cache.get(name) as StateFiber<T, A, R>;
+	let fiber = cache.get(name) as StateFiber<T, A, R>;
 
 	if (options) {
 		assign(fiber.config, options);
@@ -50,9 +50,10 @@ function createFiber<T, A extends unknown[], R>(
 	name: string,
 	options?: StateFiberConfig<T, A, R>
 ) {
-	const withoutSource: FiberWithoutSource<T, A, R> = {
+	let withoutSource: FiberWithoutSource<T, A, R> = {
 		name,
 		cache: null,
+		updateQueue: null,
 		config: assign({}, options),
 
 		args: null,
@@ -64,10 +65,10 @@ function createFiber<T, A extends unknown[], R>(
 		},
 	};
 
-	const fiber = withoutSource as StateFiber<T, A, R>;
+	let fiber = withoutSource as StateFiber<T, A, R>;
 	bindFiberMethods(fiber);
 
-	const init = fiber.config.initialValue;
+	let init = fiber.config.initialValue;
 	if (init !== undefined) {
 		fiber.current = tagFulfilledPromise(Promise.resolve(init), init);
 	}
@@ -101,7 +102,7 @@ export function createSubscription<T, A extends unknown[], R>(
 	startTransition: React.TransitionStartFunction,
 	isPending: boolean
 ): StateFiberListener<T, A, R> {
-	const subscription: Omit<StateFiberListener<T, A, R>, "clean"> = {
+	let subscription: Omit<StateFiberListener<T, A, R>, "clean"> = {
 		kind,
 		update,
 		pending: isPending,
@@ -110,11 +111,11 @@ export function createSubscription<T, A extends unknown[], R>(
 	};
 
 	function clean() {
-		const actualRetainers = fiber.retainers[kind];
+		let actualRetainers = fiber.retainers[kind];
 		if (!actualRetainers) {
 			return;
 		}
-		const prev = actualRetainers.get(update);
+		let prev = actualRetainers.get(update);
 		// unsubscribe only if it is the current
 		if (prev === subscription) {
 			actualRetainers.delete(update);
@@ -129,144 +130,156 @@ function setStateFiberData<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	data: T
 ): void {
-	fiber.alternate = null;
-	fiber.current = tagFulfilledPromise(Promise.resolve(data), data);
-	notifyFiberListeners(fiber);
+	applyUpdate(
+		fiber,
+		[data] as A,
+		tagFulfilledPromise(Promise.resolve(data), data)
+	);
 }
 
 function setStateFiberError<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	error: R
 ): void {
-	fiber.alternate = null;
-	fiber.current = tagRejectedPromise(Promise.reject(error), error);
-	notifyFiberListeners(fiber);
+	applyUpdate(
+		fiber,
+		[error] as A,
+		tagRejectedPromise(Promise.reject(error), error)
+	);
 }
 
 function runStateFiber<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	...args: A
 ): RunReturn<T, R> {
-	if (fiber.alternate) {
-		if (typeof fiber.alternate.abort === "function") {
-			fiber.alternate.abort();
-		}
-		fiber.alternate = null;
+	let updatePromise: FiberPromise<T, R> | null = null;
+
+	// when there is fn, set the state (as success) with the first ever argument
+	let fiberFn = fiber.config.fn;
+	if (!fiberFn) {
+		let value = args[0] as T;
+		updatePromise = tagFulfilledPromise(Promise.resolve(value), value);
+		applyUpdate(fiber, args, updatePromise);
+		return;
 	}
 
-	fiber.args = args;
-	if (!fiber.config.fn) {
-		fiber.setData(args[0] as T);
-		return createNoopReturn(fiber.current as Promise<T>);
-	}
-
-	let aborted = false;
-	const abort: RunReturn<T, R> = () => {
-		if (aborted) {
-			return;
-		}
-		aborted = true;
-	};
-
-	const result = fiber.config.fn.apply(null, args);
-
+	let result = fiberFn.apply(null, args);
 	if (isPromise(result)) {
 		let maybeKnown = result as FiberPromise<T, R>;
 		if (maybeKnown.status) {
-			// this path means it is already cached and maybe ready promise
 			switch (maybeKnown.status) {
-				case "pending": {
-					abort.promise = maybeKnown;
-					fiber.alternate = maybeKnown;
-					fiber.alternate.abort = abort;
-					break;
-				}
+				case "pending":
 				case "rejected":
 				case "fulfilled": {
-					fiber.alternate = null;
-					fiber.current = maybeKnown;
+					updatePromise = maybeKnown;
 					break;
 				}
 			}
 		} else {
-			fiber.alternate = tagPendingPromise(result);
-			fiber.alternate.abort = abort;
+			updatePromise = tagPendingPromise(result);
 			result.then(
-				(value) => fulfillPendingFiber(aborted, result, fiber, value),
-				(reason) => rejectPendingFiber(aborted, result, fiber, reason)
+				(value) => {
+					if (fiber.alternate === updatePromise) {
+						applyUpdate(
+							fiber,
+							args,
+							tagFulfilledPromise(updatePromise!, value)
+						);
+					}
+				},
+				(reason) => {
+					if (fiber.alternate === updatePromise) {
+						applyUpdate(
+							fiber,
+							args,
+							tagRejectedPromise(updatePromise!, reason)
+						);
+					}
+				}
 			);
 		}
 
-		notifyFiberListeners(fiber);
-		return abort;
+		applyUpdate(fiber, args, updatePromise);
 	} else {
-		// this path means that the result is not a promise
-		fiber.alternate = null;
-		fiber.current = tagFulfilledPromise(Promise.resolve(result), result);
-
-		notifyFiberListeners(fiber);
-		return createNoopReturn(fiber.current as Promise<T>);
+		applyUpdate(
+			fiber,
+			args,
+			tagFulfilledPromise(Promise.resolve(result), result)
+		);
 	}
 }
 
-function createNoopReturn<T, R>(promise: Promise<T>) {
-	const noop: RunReturn<T, R> = () => {};
-	noop.promise = promise;
-	return noop;
-}
-
-function fulfillPendingFiber<T, A extends unknown[], R>(
-	didAbort: boolean,
-	result: Promise<T>,
+function applyUpdate<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
-	value: T
-): T {
-	if (!didAbort && fiber.alternate === result) {
-		fiber.alternate = null;
-		fiber.current = tagFulfilledPromise(result, value);
+	args: A,
+	update: FiberPromise<T, R>
+	// priority: Priority
+) {
+	let isRendering = SuspenseDispatcher.isRenderPhaseRun;
+
+	if (!fiber.updateQueue) {
+		fiber.updateQueue = {
+			args,
+			update,
+			next: null,
+		};
+	} else {
+		let queue = fiber.updateQueue;
+		while (queue.next !== null) {
+			queue = queue.next;
+		}
+		queue.next = {
+			args,
+			update,
+			next: null,
+		};
+	}
+
+	if (isRendering) {
+		let currentTransition = SuspenseDispatcher.startTransition;
+		processUpdateQueue(fiber);
+
+		setTimeout(() => {
+			let capturedTransition = SuspenseDispatcher.startTransition;
+			SuspenseDispatcher.startTransition = currentTransition;
+			notifyFiberListeners(fiber);
+			SuspenseDispatcher.startTransition = capturedTransition;
+		});
+	} else {
+		processUpdateQueue(fiber);
 		notifyFiberListeners(fiber);
 	}
-	return value;
 }
 
-function rejectPendingFiber<T, A extends unknown[], R>(
-	didAbort: boolean,
-	result: Promise<T>,
-	fiber: StateFiber<T, A, R>,
-	reason: R
-): void {
-	if (!didAbort && fiber.alternate === result) {
-		fiber.alternate = null;
-		fiber.current = tagRejectedPromise(result, reason);
-		notifyFiberListeners(fiber);
-	}
-}
-
-export function notifyFiberListeners<T, A extends unknown[], R>(
+function processUpdateQueue<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>
 ) {
-	const isCurrentlyRendering = SuspenseDispatcher.isRenderPhaseRun;
-	if (isCurrentlyRendering) {
-		setTimeout(() => {
-			SuspenseDispatcher.startTransition(() => {
-				fiber.retainers[DATA]?.forEach((sub) => {
-					sub.update(defaultUpdater);
-				});
-			});
-			fiber.retainers[PENDING_AWARE]?.forEach((sub) => {
-				sub.update(defaultUpdater);
-			});
-		});
-	} else {
-		SuspenseDispatcher.startTransition(() => {
-			fiber.retainers[DATA]?.forEach((sub) => {
-				sub.update(defaultUpdater);
-			});
-		});
-		fiber.retainers[PENDING_AWARE]?.forEach((sub) => {
+	let queue = fiber.updateQueue;
+	if (!queue) {
+		return;
+	}
+	while (queue !== null) {
+		let { args, update } = queue;
+		fiber.args = args;
+		if (update.status === "pending") {
+			fiber.alternate = update;
+		} else {
+			fiber.current = update;
+			fiber.alternate = null;
+		}
+		queue = queue.next;
+	}
+}
+
+function notifyFiberListeners(fiber: StateFiber<any, any, any>) {
+	SuspenseDispatcher.startTransition(() => {
+		fiber.retainers[DATA]?.forEach((sub) => {
 			sub.update(defaultUpdater);
 		});
-	}
+	});
+	fiber.retainers[PENDING_AWARE]?.forEach((sub) => {
+		sub.update(defaultUpdater);
+	});
 }
 
 export function tagFulfilledPromise<T>(
@@ -279,11 +292,11 @@ export function tagFulfilledPromise<T>(
 	return fulfilledPromise;
 }
 
-export function tagRejectedPromise<R>(
+export function tagRejectedPromise<T, R>(
 	promise: Promise<any>,
 	reason: R
-): FiberStateRejected<R> {
-	let fulfilledPromise = promise as FiberStateRejected<R>;
+): FiberStateRejected<T, R> {
+	let fulfilledPromise = promise as FiberStateRejected<T, R>;
 	fulfilledPromise.status = "rejected";
 	fulfilledPromise.reason = reason;
 	return fulfilledPromise;

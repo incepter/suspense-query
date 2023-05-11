@@ -10,10 +10,6 @@ type BoundaryProps = {
 	children: React.ReactNode;
 };
 
-
-
-
-
 export default class DefaultErrorBoundary extends React.PureComponent<
 	BoundaryProps,
 	State
@@ -80,17 +76,19 @@ export default class DefaultErrorBoundary extends React.PureComponent<
 							</button>
 						</h3>
 
-						<details open>
-							<summary>{error?.toString?.()}</summary>
-							<button
-								className="button primary light"
-								style={{ marginLeft: 32 }}
-								onClick={() => copyErrorInfo(this.state)}
-							>
-								Copy to clipboard
-							</button>
+						<section>
+							<summary>
+								{error?.toString?.()}
+								<button
+									className="button primary light"
+									style={{ marginLeft: 32 }}
+									onClick={() => copyErrorInfo(this.state)}
+								>
+									Copy to clipboard
+								</button>
+							</summary>
 							<pre>{errorInfo.componentStack}</pre>
-						</details>
+						</section>
 					</div>
 				</div>
 			);

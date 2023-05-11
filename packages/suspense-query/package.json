@@ -67,7 +67,10 @@
     "node": ">=8"
   },
   "keywords": [
-    "usePromise",
+    "transition",
+    "suspense",
+    "concurrent mode",
+    "hooks",
     "react-use",
     "react",
     "state",
