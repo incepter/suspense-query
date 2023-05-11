@@ -11,7 +11,9 @@ export async function getUsersList() {
 }
 
 export function Component() {
+  console.log('UsersPage Render start')
   let users = useQueryData("getUsersList", {fn: getUsersList});
+  console.log('UsersPage Render completed')
   return (
     <details open>
       <summary>Users List</summary>

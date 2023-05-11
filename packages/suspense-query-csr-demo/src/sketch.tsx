@@ -7,36 +7,51 @@ import { API } from "./app/api";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
-		<DefaultErrorBoundary>
-			<React.Suspense fallback="LoadingApp">
-				{/*<br />*/}
-				<SearchDisplayDemo />
-				<SearchDemo />
+		<Wrapper>
+			<DefaultErrorBoundary>
+				<React.Suspense fallback="LoadingApp">
+					{/*<br />*/}
 
-				<UserId />
-				<CounterDemo />
+					<CounterDemo />
+					<UserId />
+					<hr />
+					<React.Suspense fallback=".....">
+						<UserDetailsDemo />
+					</React.Suspense>
+					<React.Suspense fallback=".....">
+						<SearchDisplayDemoParent />
+					</React.Suspense>
+					<SearchDemo />
+					<hr />
+					<React.Suspense fallback="....."></React.Suspense>
+					<PendingBar stateName="search" />
+				</React.Suspense>
 				<hr />
-				{/*<React.Suspense fallback=".....">*/}
-				{/*<UsersListDemo />*/}
-				{/*<hr />*/}
-				<UserDetailsDemo />
-				{/*</React.Suspense>*/}
-				<hr />
-				{/*<React.Suspense fallback=".....">*/}
-				{/*</React.Suspense>*/}
 				<PendingBar stateName="search" />
-			</React.Suspense>
-			<hr />
-			<PendingBar stateName="search" />
-			<hr />
-			<PendingBar stateName="counter" />
-			<hr />
-			<PendingBar stateName="userId" />
-			<hr />
-			<PendingBar stateName="user-details" />
-		</DefaultErrorBoundary>
+				<hr />
+				<PendingBar stateName="counter" />
+				<hr />
+				<PendingBar stateName="userId" />
+				<hr />
+				<PendingBar stateName="user-details" />
+			</DefaultErrorBoundary>
+		</Wrapper>
 	</React.StrictMode>
 );
+
+function Wrapper({ init = true, children }) {
+	let [visible, setVisible] = React.useState(init);
+
+	return (
+		<div>
+			<button onClick={() => setVisible(!visible)}>
+				{visible ? "Hide" : "Show"}
+			</button>
+			<hr />
+			{visible ? children : null}
+		</div>
+	);
+}
 
 function CounterDemo() {
 	let count = useQueryData("counter", { initialValue: 0 });
@@ -52,7 +67,7 @@ function CounterDemo() {
 function UserId() {
 	let userId = useQueryData("userId", { initialValue: "1" });
 	let [value, setValue] = React.useState(userId);
-	let { run: search } = useQueryControl("user-details");
+	let { run: search, isPending } = useQueryControl("user-details");
 	return (
 		<div>
 			<input value={value} onChange={(e) => setValue(e.target.value)} />
@@ -61,7 +76,7 @@ function UserId() {
 					search(value);
 				}}
 			>
-				search
+				search {isPending ? " ..." : ""}
 			</button>
 		</div>
 	);
@@ -118,34 +133,56 @@ function delayedIdentity(id: string) {
 	return new Promise<string>((resolve) => {
 		setTimeout(() => {
 			resolve(id);
-		}, 1000 / id.length);
+		}, 3000 / id.length);
 	});
 }
 
 function SearchDemo() {
+	console.log("query controls start ---");
 	const { isPending, run } = useQueryControl("search");
-	console.log("SuspendingTree ---", isPending);
+	console.log("query controls End ---");
 	return (
 		<div>
-			<span>{Date.now()}</span>
+			<span>
+				{Date.now()} {String(isPending)}
+			</span>
 			<input onChange={(e) => run(e.target.value)} />
 		</div>
 	);
 }
 
 function SearchDisplayDemo() {
-	let rerender = React.useState(0)[1];
+	console.log("data start");
 	const searchResult = useQueryData("search", {
 		initialArgs: ["14"],
 		fn: delayedIdentity,
 	});
+	console.log("data end");
 	return (
 		<div>
-			<button onClick={() => rerender((prev) => prev + 1)}>Rerender</button>
 			<details open>
 				<summary>{Date.now()}</summary>
 				<pre>{JSON.stringify({ searchResult }, null, 4)}</pre>
 			</details>
+		</div>
+	);
+}
+
+function SearchDisplayDemoParent() {
+	let [cn, rerender] = React.useState(0);
+	return (
+		<div>
+			<button
+				onClick={() => {
+					console.log("click");
+					rerender((prev) => prev + 1);
+				}}
+			>
+				Rerender
+			</button>
+			<div>
+				<SearchDisplayDemo />
+			</div>
 		</div>
 	);
 }

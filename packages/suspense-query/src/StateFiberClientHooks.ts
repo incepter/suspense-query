@@ -1,5 +1,4 @@
 import * as React from "react";
-import { startTransition } from "react";
 import {
 	FiberStateRejected,
 	StateFiber,
@@ -21,7 +20,7 @@ import {
 	hasOwnProp,
 } from "./shared";
 import { reactUse } from "./Use";
-import { DATA, PENDING_AWARE, SubscriptionKind } from "./SubscriptionKind";
+import { DATA, PENDING_AWARE, SubscriptionKind } from "./StateFiberFlags";
 
 let didWarnAboutUsingBothArgsAndInitialArgs = false;
 
@@ -78,7 +77,7 @@ export function useQueryError<T, A extends unknown[], R = unknown>(
 	let fiber = getOrCreateStateFiber<T, A, R>(cache, name);
 
 	useSubscribeToFiber(DATA, fiber);
-	return (fiber.current as FiberStateRejected<R>)?.reason ?? null;
+	return (fiber.current as FiberStateRejected<T, R>)?.reason ?? null;
 }
 
 export function useQueryControl<
@@ -90,7 +89,7 @@ export function useQueryControl<
 	let fiber = getOrCreateStateFiber<T, A, R>(cache, name);
 
 	let isPending = !!fiber.alternate;
-	useSubscribeToFiber(PENDING_AWARE, fiber);
+	let { start } = useSubscribeToFiber(PENDING_AWARE, fiber);
 
 	return React.useMemo(
 		() => ({
@@ -98,28 +97,26 @@ export function useQueryControl<
 			setData(data: T) {
 				let prevTransitionFn = SuspenseDispatcher.startTransition;
 
-				SuspenseDispatcher.startTransition = startTransition;
+				SuspenseDispatcher.startTransition = start;
 				fiber.setData(data);
 				SuspenseDispatcher.startTransition = prevTransitionFn;
 			},
 			setError(error: R) {
 				let prevTransitionFn = SuspenseDispatcher.startTransition;
 
-				SuspenseDispatcher.startTransition = startTransition;
+				SuspenseDispatcher.startTransition = start;
 				fiber.setError(error);
 				SuspenseDispatcher.startTransition = prevTransitionFn;
 			},
 			run(...args: A) {
 				let prevTransitionFn = SuspenseDispatcher.startTransition;
 
-				SuspenseDispatcher.startTransition = startTransition;
-				let runReturn = fiber.run.apply(null, args);
+				SuspenseDispatcher.startTransition = start;
+				fiber.run.apply(null, args);
 				SuspenseDispatcher.startTransition = prevTransitionFn;
-
-				return runReturn;
 			},
 		}),
-		[fiber, startTransition, isPending]
+		[fiber, start, isPending]
 	);
 }
 
@@ -165,31 +162,6 @@ function commitSubscription<T, A extends unknown[], R>(
 	let actualRetainers = fiber.retainers[subscription.kind]!;
 	actualRetainers.set(subscription.update, subscription);
 
-	if (subscription.pending) {
-		if (prev && !prev.pending) {
-			fiber.retainers[DATA]?.forEach((t) => {
-				if (t.update !== subscription.update) {
-					t.update(defaultUpdater);
-				}
-			});
-			fiber.retainers[PENDING_AWARE]?.forEach((t) => {
-				if (t.update !== subscription.update) {
-					t.update(defaultUpdater);
-				}
-			});
-		}
-	} else if (prev && prev.pending && fiber.alternate) {
-		fiber.retainers[DATA]?.forEach((t) => {
-			if (t.update !== subscription.update) {
-				t.update(defaultUpdater);
-			}
-		});
-		fiber.retainers[PENDING_AWARE]?.forEach((t) => {
-			if (t.update !== subscription.update) {
-				t.update(defaultUpdater);
-			}
-		});
-	}
 	return subscription.clean;
 }
 
@@ -226,36 +198,4 @@ function runFiberFunctionOnRender<T, A extends unknown[], R>(
 	} finally {
 		SuspenseDispatcher.isRenderPhaseRun = prevIsRenderPhaseRun;
 	}
-	// throw new Error("STOP")
-
-	// throw promise;
-	// fiber.args = args;
-	// if (!isPromise(result)) {
-	// 	fiber.alternate = null;
-	// 	fiber.current = tagFulfilledPromise(Promise.resolve(result), result);
-	// } else {
-	// 	fiber.alternate = tagPendingPromise(result);
-	// 	fiber.alternate.then(
-	// 		(fulfilledValue) => {
-	// 			// update current state only if it is the current
-	// 			if (fiber.alternate === (result as Promise<T>)) {
-	// 				fiber.current = tagFulfilledPromise(fiber.alternate, fulfilledValue);
-	// 				fiber.alternate = null;
-	// 				notifyFiberListenersByKind(fiber);
-	// 			}
-	// 			return fulfilledValue;
-	// 		},
-	// 		(error: R) => {
-	// 			// update current state only if it is the current
-	// 			if (fiber.alternate === (result as Promise<T>)) {
-	// 				fiber.current = tagRejectedPromise(fiber.alternate, error);
-	// 				fiber.alternate = null;
-	// 				notifyFiberListenersByKind(fiber);
-	// 			}
-	// 			throw error;
-	// 		}
-	// 	);
-	// 	setTimeout(() => notifyFiberListenersByKind(fiber));
-	// 	throw fiber.alternate;
-	// }
 }
