@@ -70,14 +70,14 @@ export function useQueryData<T, A extends unknown[], R>(
 	return reactUse(fiber.alternate || fiber.current);
 }
 
-export function useQueryError<T, A extends unknown[], R = unknown>(
+export function useQueryError<R = unknown>(
 	name: string
 ): R | null {
 	let cache = useStateFiberCache();
-	let fiber = getOrCreateStateFiber<T, A, R>(cache, name);
+	let fiber = getOrCreateStateFiber<any, any, R>(cache, name);
 
 	useSubscribeToFiber(DATA, fiber);
-	return (fiber.current as FiberStateRejected<T, R>)?.reason ?? null;
+	return (fiber.current as FiberStateRejected<any, R>)?.reason ?? null;
 }
 
 export function useQueryControl<
