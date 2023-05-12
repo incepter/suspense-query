@@ -33,6 +33,18 @@ let error = useQueryError(getUserDetails);
 let { isPending, run, setData, setError } = useQueryControls(getUserDetails);
 ```
 
+## `useMutation`
+
+```tsx
+// needs types annotation
+// useMutation<T, A extends unknown[], R>(mutation, queriesToInvalidateOnSuccess?)
+let [run, isPending] = useMutation(updateUser, [getUserDetails]);
+
+
+
+run(newUserData);
+```
+
 ## Roadmap
 
 - [x] Basic Query sharing and manipulation
