@@ -17,7 +17,13 @@ import {
 	isPromise,
 	resolveComponentName,
 } from "./shared";
-import { DATA, PENDING_AWARE, SubscriptionKind } from "./StateFiberFlags";
+import {
+	TRANSITION,
+	NO_TRANSITION,
+	SubscriptionKind,
+	PENDING_TRANSITION,
+	PENDING,
+} from "./StateFiberFlags";
 
 export type CurrentGlobals = {
 	isRenderPhaseRun: boolean;
@@ -60,8 +66,8 @@ function createFiber<T, A extends unknown[], R>(
 		current: null,
 		alternate: null,
 		retainers: {
-			[DATA]: null,
-			[PENDING_AWARE]: null,
+			[TRANSITION]: null,
+			[NO_TRANSITION]: null,
 		},
 	};
 
@@ -95,6 +101,22 @@ function bindFiberMethods<T, A extends unknown[], R>(
 	).bind(null, fiber);
 }
 
+function getInitialSubscriptionFlags(
+	fiber: StateFiber<any, any, any>,
+	isPending: boolean
+) {
+	let flags = 0;
+
+	if (fiber.alternate) {
+		flags |= PENDING;
+	}
+	if (isPending) {
+		flags |= PENDING_TRANSITION;
+	}
+
+	return flags;
+}
+
 export function createSubscription<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	kind: SubscriptionKind,
@@ -105,8 +127,8 @@ export function createSubscription<T, A extends unknown[], R>(
 	let subscription: Omit<StateFiberListener<T, A, R>, "clean"> = {
 		kind,
 		update,
-		pending: isPending,
 		start: startTransition,
+		flags: getInitialSubscriptionFlags(fiber, isPending),
 		at: __DEV__ ? resolveComponentName() : undefined,
 	};
 
@@ -115,9 +137,9 @@ export function createSubscription<T, A extends unknown[], R>(
 		if (!actualRetainers) {
 			return;
 		}
-		let prev = actualRetainers.get(update);
+		let current = actualRetainers.get(update);
 		// unsubscribe only if it is the current
-		if (prev === subscription) {
+		if (current === subscription) {
 			actualRetainers.delete(update);
 		}
 	}
@@ -273,11 +295,16 @@ function processUpdateQueue<T, A extends unknown[], R>(
 
 function notifyFiberListeners(fiber: StateFiber<any, any, any>) {
 	SuspenseDispatcher.startTransition(() => {
-		fiber.retainers[DATA]?.forEach((sub) => {
+		fiber.retainers[TRANSITION]?.forEach(async (sub) => {
 			sub.update(defaultUpdater);
+			let pendingPromise = fiber.alternate;
+			if (pendingPromise) {
+				await pendingPromise;
+			}
+			await fiber.current;
 		});
 	});
-	fiber.retainers[PENDING_AWARE]?.forEach((sub) => {
+	fiber.retainers[NO_TRANSITION]?.forEach((sub) => {
 		sub.update(defaultUpdater);
 	});
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { DATA, PENDING_AWARE, SubscriptionKind } from "./StateFiberFlags";
+import { TRANSITION, NO_TRANSITION, SubscriptionKind } from "./StateFiberFlags";
 
 export type StateFiberCacheContextType = Map<string, StateFiber<any, any, any>>;
 
@@ -49,8 +49,8 @@ export interface StateFiber<T, A extends unknown[], R> {
 	current: FiberState<T, R> | null;
 	alternate: FiberStatePending<T, R> | null;
 	retainers: {
-		[DATA]: FiberRetainers<T, A, R> | null;
-		[PENDING_AWARE]: FiberRetainers<T, A, R> | null;
+		[TRANSITION]: FiberRetainers<T, A, R> | null;
+		[NO_TRANSITION]: FiberRetainers<T, A, R> | null;
 	};
 
 	setData(data: T): void;
@@ -77,7 +77,7 @@ export type FiberWithoutSource<T, A extends unknown[], R> = Omit<
 
 export type StateFiberListener<T, A extends unknown[], R> = {
 	at?: string; // dev mode
-	pending: boolean;
+	flags: number;
 	clean: () => void;
 	kind: SubscriptionKind;
 	// run: (...args: A) => RunReturn<T, R>;

@@ -12,15 +12,16 @@ import {
 	SuspenseDispatcher,
 	tagFulfilledPromise,
 } from "./StateFiber";
-import {
-	__DEV__,
-	defaultUpdater,
-	didDepsChange,
-	emptyArray,
-	hasOwnProp,
-} from "./shared";
+import { __DEV__, didDepsChange, emptyArray, hasOwnProp } from "./shared";
 import { reactUse } from "./Use";
-import { DATA, PENDING_AWARE, SubscriptionKind } from "./StateFiberFlags";
+import {
+	COMMITTED,
+	NO_TRANSITION,
+	SubscriptionKind,
+	RENDERING,
+	TRANSITION,
+	humanizeFlags,
+} from "./StateFiberFlags";
 
 let didWarnAboutUsingBothArgsAndInitialArgs = false;
 
@@ -30,12 +31,9 @@ function useSubscribeToFiber<T, A extends unknown[], R>(
 ) {
 	let forceUpdate = React.useState(0)[1];
 	let [isPending, _start] = React.useTransition();
-	let previousSub = fiber.retainers[kind]?.get(forceUpdate);
 	let subscription = fiber.retain(kind, forceUpdate, _start, isPending);
 
-	React.useLayoutEffect(() =>
-		commitSubscription(fiber, subscription, previousSub)
-	);
+	React.useLayoutEffect(() => commitSubscription(fiber, subscription));
 	return subscription;
 }
 
@@ -50,33 +48,28 @@ export function useQueryData<T, A extends unknown[], R>(
 		warnInDevAboutIncompatibleOptions(fiber, options);
 	}
 
-	if (fiber.current === null && fiber.alternate === null) {
-		let args = ((options && (options.args || options.initialArgs)) ||
-			emptyArray) as A;
-		mountStateFiber(fiber, args);
-	} else if (options && options.args) {
-		let args = options.args;
-		if (didDepsChange(fiber.args!, args)) {
-			updateStateFiber(fiber, args);
-		}
-	}
-
-	useSubscribeToFiber(DATA, fiber);
+	renderFiber(fiber, options);
+	let subscription = useSubscribeToFiber(TRANSITION, fiber);
 
 	if (!(fiber.alternate || fiber.current)) {
 		throw new Error(`Query with name ${name} has no initial value.`);
 	}
 
+	subscription.flags |= RENDERING;
+
+	console.log(
+		"useQueryDataFlags",
+		subscription.at,
+		humanizeFlags(subscription.flags)
+	);
 	return reactUse(fiber.alternate || fiber.current);
 }
 
-export function useQueryError<R = unknown>(
-	name: string
-): R | null {
+export function useQueryError<R = unknown>(name: string): R | null {
 	let cache = useStateFiberCache();
 	let fiber = getOrCreateStateFiber<any, any, R>(cache, name);
 
-	useSubscribeToFiber(DATA, fiber);
+	useSubscribeToFiber(TRANSITION, fiber);
 	return (fiber.current as FiberStateRejected<any, R>)?.reason ?? null;
 }
 
@@ -89,7 +82,7 @@ export function useQueryControl<
 	let fiber = getOrCreateStateFiber<T, A, R>(cache, name);
 
 	let isPending = !!fiber.alternate;
-	let { start } = useSubscribeToFiber(PENDING_AWARE, fiber);
+	let { start } = useSubscribeToFiber(NO_TRANSITION, fiber);
 
 	return React.useMemo(
 		() => ({
@@ -120,6 +113,21 @@ export function useQueryControl<
 	);
 }
 
+function renderFiber<T, A extends unknown[], R>(
+	fiber: StateFiber<T, A, R>,
+	options: UseDataOptions<T, A, R> | undefined
+) {
+	if (fiber.current === null && fiber.alternate === null) {
+		let args = ((options && (options.args || options.initialArgs)) ||
+			emptyArray) as A;
+		mountStateFiber(fiber, args);
+	} else if (options && options.args) {
+		let args = options.args;
+		if (didDepsChange(fiber.args!, args)) {
+			updateStateFiber(fiber, args);
+		}
+	}
+}
 function mountStateFiber<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	args: A
@@ -152,8 +160,7 @@ function updateStateFiber<T, A extends unknown[], R>(
 
 function commitSubscription<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
-	subscription: StateFiberListener<T, A, R>,
-	prev?: StateFiberListener<T, A, R>
+	subscription: StateFiberListener<T, A, R>
 ) {
 	if (!fiber.retainers[subscription.kind]) {
 		fiber.retainers[subscription.kind] = new Map();
@@ -162,7 +169,11 @@ function commitSubscription<T, A extends unknown[], R>(
 	let actualRetainers = fiber.retainers[subscription.kind]!;
 	actualRetainers.set(subscription.update, subscription);
 
-	return subscription.clean;
+	subscription.flags |= COMMITTED;
+	return () => {
+		subscription.clean();
+		subscription.flags &= ~COMMITTED;
+	};
 }
 
 function warnInDevAboutIncompatibleOptions(
