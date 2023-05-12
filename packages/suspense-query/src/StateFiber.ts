@@ -6,8 +6,9 @@ import {
 	FiberStatePending,
 	FiberStateRejected,
 	FiberWithoutSource,
+	QueryToInvalidate,
 	RunReturn,
-	StateFiber,
+	StateFiber, StateFiberCacheContextType,
 	StateFiberConfig,
 	StateFiberListener,
 } from "./types";
@@ -41,7 +42,7 @@ export function getOrCreateStateFiber<T, A extends unknown[], R>(
 	options?: StateFiberConfig<T, A, R>
 ) {
 	if (!cache.has(query)) {
-		let fiber = createFiber<T, A, R>(query, options);
+		let fiber = createFiber<T, A, R>(cache, query, options);
 		cache.set(query, fiber);
 		return fiber;
 	}
@@ -54,13 +55,16 @@ export function getOrCreateStateFiber<T, A extends unknown[], R>(
 }
 
 function createFiber<T, A extends unknown[], R>(
-	query: FiberProducer<T, A, R>,
+	root: StateFiberCacheContextType,
+  query: FiberProducer<T, A, R>,
 	options?: StateFiberConfig<T, A, R>
 ) {
 	let withoutSource: FiberWithoutSource<T, A, R> = {
+		root,
+
 		query,
-		cache: null,
 		updateQueue: null,
+		dependencies: null,
 		config: assign({}, options),
 		name: options && options.name,
 
@@ -157,7 +161,8 @@ function setStateFiberData<T, A extends unknown[], R>(
 	applyUpdate(
 		fiber,
 		[data] as A,
-		tagFulfilledPromise(Promise.resolve(data), data)
+		tagFulfilledPromise(Promise.resolve(data), data),
+		fiber.dependencies
 	);
 }
 
@@ -168,7 +173,8 @@ function setStateFiberError<T, A extends unknown[], R>(
 	applyUpdate(
 		fiber,
 		[error] as A,
-		tagRejectedPromise(Promise.reject(error), error)
+		tagRejectedPromise(Promise.reject(error), error),
+		fiber.dependencies
 	);
 }
 
@@ -180,10 +186,11 @@ function runStateFiber<T, A extends unknown[], R>(
 
 	// when there is fn, set the state (as success) with the first ever argument
 	let fiberFn = fiber.query;
+	let dependencies = fiber.dependencies;
 	if (!fiberFn) {
 		let value = args[0] as T;
 		updatePromise = tagFulfilledPromise(Promise.resolve(value), value);
-		applyUpdate(fiber, args, updatePromise);
+		applyUpdate(fiber, args, updatePromise, dependencies);
 		return;
 	}
 
@@ -207,7 +214,8 @@ function runStateFiber<T, A extends unknown[], R>(
 						applyUpdate(
 							fiber,
 							args,
-							tagFulfilledPromise(updatePromise!, value)
+							tagFulfilledPromise(updatePromise!, value),
+							dependencies
 						);
 					}
 				},
@@ -216,28 +224,49 @@ function runStateFiber<T, A extends unknown[], R>(
 						applyUpdate(
 							fiber,
 							args,
-							tagRejectedPromise(updatePromise!, reason)
+							tagRejectedPromise(updatePromise!, reason),
+							dependencies
 						);
 					}
 				}
 			);
 		}
 
-		applyUpdate(fiber, args, updatePromise);
+		applyUpdate(fiber, args, updatePromise, dependencies);
 	} else {
 		applyUpdate(
 			fiber,
 			args,
-			tagFulfilledPromise(Promise.resolve(result), result)
+			tagFulfilledPromise(Promise.resolve(result), result),
+			dependencies
 		);
+	}
+}
+
+function evictFiberDependencies<T, A extends unknown[], R>(
+	fiber: StateFiber<T, A, R>,
+	deps: QueryToInvalidate<any, any, any>[] | null
+) {
+	if (fiber.current?.status !== "fulfilled" || !deps) {
+		return;
+	}
+
+	let cache = fiber.root;
+	for (let dep of deps) {
+		let fn = typeof dep === "function" ? dep : dep.query;
+		// let args = typeof dep === "function" ? null : dep.args;
+		let maybeTargetFiber = cache.get(fn);
+		if (maybeTargetFiber) {
+			notifyFiberListeners(maybeTargetFiber);
+		}
 	}
 }
 
 function applyUpdate<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	args: A,
-	update: FiberPromise<T, R>
-	// priority: Priority
+	update: FiberPromise<T, R>,
+	deps: QueryToInvalidate<any, any, any>[] | null
 ) {
 	let isRendering = SuspenseDispatcher.isRenderPhaseRun;
 
@@ -262,6 +291,7 @@ function applyUpdate<T, A extends unknown[], R>(
 	if (isRendering) {
 		let currentTransition = SuspenseDispatcher.startTransition;
 		processUpdateQueue(fiber);
+		evictFiberDependencies(fiber, deps);
 
 		setTimeout(() => {
 			let capturedTransition = SuspenseDispatcher.startTransition;
@@ -271,6 +301,10 @@ function applyUpdate<T, A extends unknown[], R>(
 		});
 	} else {
 		processUpdateQueue(fiber);
+		evictFiberDependencies(fiber, deps);
+		if (fiber.current?.status === "fulfilled") {
+		}
+
 		notifyFiberListeners(fiber);
 	}
 }
