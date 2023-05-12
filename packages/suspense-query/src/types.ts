@@ -41,13 +41,23 @@ export type FiberUpdateQueue<T, A extends unknown[], R> = {
 	next: FiberUpdateQueue<T, A, R> | null;
 };
 
+export type QueryToInvalidate<T, A extends unknown[], R> =
+	| {
+			query: FiberProducer<T, A, R>;
+			args: A;
+	  }
+	| FiberProducer<T, A, R>;
+
 export interface StateFiber<T, A extends unknown[], R> {
+	root: StateFiberCacheContextType;
+
 	name?: string;
 	query: FiberProducer<T, A, R>;
 	config: StateFiberConfig<T, A, R>;
-	cache: Map<A, FiberState<T, R>> | null;
+
 
 	updateQueue: FiberUpdateQueue<T, A, R> | null;
+	dependencies: QueryToInvalidate<any, any, any>[] | null;
 
 	args: A | null;
 	current: FiberState<T, R> | null;

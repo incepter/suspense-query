@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import DefaultErrorBoundary from "./app/error-boundary";
-import { useQueryControls, useQueryData } from "suspense-query";
+import { useQueryControls, useQueryData, useMutation } from "suspense-query";
 import { API } from "./app/api";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -12,25 +12,22 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 				<React.Suspense fallback="LoadingApp">
 					{/*<br />*/}
 
-					{/*<CounterDemo />*/}
-					{/*<UserId />*/}
-					{/*<hr />*/}
+					<CounterDemo />
+					<UserId />
+					<hr />
 					{/*<React.Suspense fallback=".....">*/}
-					{/*	<UserDetailsDemo />*/}
+					<UserDetailsDemo />
+					<MutationDemo />
 					{/*</React.Suspense>*/}
 					<React.Suspense fallback=".....">
 						<SearchDisplayDemoParent />
 					</React.Suspense>
 					<SearchDemo />
-					<hr />
-					{/*<PendingBar query="search" />*/}
 				</React.Suspense>
 				<hr />
 				<PendingBar query={delayedIdentity} />
 				{/*<hr />*/}
 				<PendingBar query={counter} />
-				{/*<hr />*/}
-				{/*<PendingBar query="userId" />*/}
 				{/*<hr />*/}
 				<PendingBar query={getUserDetails} />
 			</DefaultErrorBoundary>
@@ -53,7 +50,7 @@ function Wrapper({ init = true, children }) {
 }
 
 function counter(arg = 0) {
-	return arg + 1
+	return arg + 1;
 }
 
 function CounterDemo() {
@@ -63,6 +60,25 @@ function CounterDemo() {
 	return (
 		<div>
 			<button onClick={() => setData(count + 1)}>Count: {count}</button>
+		</div>
+	);
+}
+
+function UserDetailsDemo() {
+	console.log("____UseData1Demo_____start");
+	let userData = useQueryData(getUserDetails, {
+		initialArgs: [1],
+	});
+	console.log("____UseData1Demo_____end");
+
+	return (
+		<div>
+			<details>
+				<summary>
+					User {userData.id} - {userData.username}
+				</summary>
+				<pre>{JSON.stringify(userData, null, 4)}</pre>
+			</details>
 		</div>
 	);
 }
@@ -176,5 +192,23 @@ function PendingBar({ query }: { query: (...args: any[]) => any }) {
 				{query.name} is {isPending ? " ____Pending____" : " Not pending"}
 			</span>
 		</div>
+	);
+}
+
+function myMutation() {
+	return Promise.resolve("ok");
+}
+
+function MutationDemo() {
+	let [run, isPending] = useMutation(myMutation, [getUserDetails]);
+
+	return (
+		<button
+			onClick={() => {
+				run();
+			}}
+		>
+			Mutate {isPending ? "_________" : null}
+		</button>
 	);
 }
