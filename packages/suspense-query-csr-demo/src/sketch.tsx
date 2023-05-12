@@ -12,28 +12,27 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 				<React.Suspense fallback="LoadingApp">
 					{/*<br />*/}
 
-					<CounterDemo />
-					<UserId />
-					<hr />
-					<React.Suspense fallback=".....">
-						<UserDetailsDemo />
-					</React.Suspense>
+					{/*<CounterDemo />*/}
+					{/*<UserId />*/}
+					{/*<hr />*/}
+					{/*<React.Suspense fallback=".....">*/}
+					{/*	<UserDetailsDemo />*/}
+					{/*</React.Suspense>*/}
 					<React.Suspense fallback=".....">
 						<SearchDisplayDemoParent />
 					</React.Suspense>
 					<SearchDemo />
 					<hr />
-					<React.Suspense fallback="....."></React.Suspense>
-					<PendingBar stateName="search" />
+					{/*<PendingBar stateName="search" />*/}
 				</React.Suspense>
 				<hr />
 				<PendingBar stateName="search" />
-				<hr />
-				<PendingBar stateName="counter" />
-				<hr />
-				<PendingBar stateName="userId" />
-				<hr />
-				<PendingBar stateName="user-details" />
+				{/*<hr />*/}
+				{/*<PendingBar stateName="counter" />*/}
+				{/*<hr />*/}
+				{/*<PendingBar stateName="userId" />*/}
+				{/*<hr />*/}
+				{/*<PendingBar stateName="user-details" />*/}
 			</DefaultErrorBoundary>
 		</Wrapper>
 	</React.StrictMode>

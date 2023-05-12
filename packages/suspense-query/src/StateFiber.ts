@@ -295,13 +295,8 @@ function processUpdateQueue<T, A extends unknown[], R>(
 
 function notifyFiberListeners(fiber: StateFiber<any, any, any>) {
 	SuspenseDispatcher.startTransition(() => {
-		fiber.retainers[TRANSITION]?.forEach(async (sub) => {
+		fiber.retainers[TRANSITION]?.forEach((sub) => {
 			sub.update(defaultUpdater);
-			let pendingPromise = fiber.alternate;
-			if (pendingPromise) {
-				await pendingPromise;
-			}
-			await fiber.current;
 		});
 	});
 	fiber.retainers[NO_TRANSITION]?.forEach((sub) => {
