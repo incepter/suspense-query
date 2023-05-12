@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+	FiberProducer,
 	FiberStateRejected,
 	StateFiber,
 	StateFiberListener,
@@ -17,10 +18,9 @@ import { reactUse } from "./Use";
 import {
 	COMMITTED,
 	NO_TRANSITION,
-	SubscriptionKind,
 	RENDERING,
+	SubscriptionKind,
 	TRANSITION,
-	humanizeFlags,
 } from "./StateFiberFlags";
 
 let didWarnAboutUsingBothArgsAndInitialArgs = false;
@@ -38,11 +38,11 @@ function useSubscribeToFiber<T, A extends unknown[], R>(
 }
 
 export function useQueryData<T, A extends unknown[], R>(
-	name: string,
+	query: FiberProducer<T, A, R>,
 	options?: UseDataOptions<T, A, R>
 ): T {
 	let cache = useStateFiberCache();
-	let fiber = getOrCreateStateFiber<T, A, R>(cache, name, options);
+	let fiber = getOrCreateStateFiber<T, A, R>(cache, query, options);
 
 	if (__DEV__) {
 		warnInDevAboutIncompatibleOptions(fiber, options);
@@ -52,22 +52,21 @@ export function useQueryData<T, A extends unknown[], R>(
 	let subscription = useSubscribeToFiber(TRANSITION, fiber);
 
 	if (!(fiber.alternate || fiber.current)) {
-		throw new Error(`Query with name ${name} has no initial value.`);
+		if (__DEV__) {
+			console.error(`Query at ${subscription.at} has no initial value.`, query);
+		}
+		throw new Error(`Query has no initial value.`);
 	}
 
 	subscription.flags |= RENDERING;
-
-	console.log(
-		"useQueryDataFlags",
-		subscription.at,
-		humanizeFlags(subscription.flags)
-	);
 	return reactUse(fiber.alternate || fiber.current);
 }
 
-export function useQueryError<R = unknown>(name: string): R | null {
+export function useQueryError<R = unknown>(
+	query: FiberProducer<any, any, R>
+): R | null {
 	let cache = useStateFiberCache();
-	let fiber = getOrCreateStateFiber<any, any, R>(cache, name);
+	let fiber = getOrCreateStateFiber<any, any, R>(cache, query);
 
 	useSubscribeToFiber(TRANSITION, fiber);
 	return (fiber.current as FiberStateRejected<any, R>)?.reason ?? null;
@@ -77,9 +76,9 @@ export function useQueryControl<
 	T,
 	A extends unknown[] = unknown[],
 	R = unknown
->(name: string): UseQueryControlReturn<T, A, R> {
+>(query: FiberProducer<T, A, R>): UseQueryControlReturn<T, A, R> {
 	let cache = useStateFiberCache();
-	let fiber = getOrCreateStateFiber<T, A, R>(cache, name);
+	let fiber = getOrCreateStateFiber<T, A, R>(cache, query);
 
 	let isPending = !!fiber.alternate;
 	let { start } = useSubscribeToFiber(NO_TRANSITION, fiber);
@@ -133,7 +132,7 @@ function mountStateFiber<T, A extends unknown[], R>(
 	args: A
 ): void {
 	let config = fiber.config;
-	if (!config.fn) {
+	if (!fiber.query) {
 		let init = config.initialValue;
 		if (init !== undefined) {
 			fiber.alternate = null;
@@ -148,8 +147,7 @@ function updateStateFiber<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	args: A
 ): void {
-	let config = fiber.config;
-	if (!config.fn) {
+	if (!fiber.query) {
 		// do nothing when there is no producer on update
 		// it will be used via setData and setError
 		return;

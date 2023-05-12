@@ -4,3 +4,5 @@ export {
 	useQueryControl,
 	useQueryData,
 } from "./StateFiberClientHooks";
+
+export type { FiberProducer } from "./types";

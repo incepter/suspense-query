@@ -14,8 +14,6 @@ export const PENDING_TRANSITION /*       */ = 0b0001_0000;
 export const COMMITTED /*                */ = 0b0010_0000;
 export const ERRORED /*                  */ = 0b0100_0000;
 
-
-
 let devFlagsObject: Record<string, number> = {};
 if (__DEV__) {
 	devFlagsObject = {
@@ -26,11 +24,11 @@ if (__DEV__) {
 		COMMITTED: COMMITTED,
 		PENDING_AWARE: PENDING_AWARE,
 		PENDING_TRANSITION: PENDING_TRANSITION,
-	}
+	};
 }
 export function humanizeFlags(flags: number) {
 	if (__DEV__) {
-		let output: string[] = []
+		let output: string[] = [];
 		for (let [name, value] of Object.entries(devFlagsObject)) {
 			if (value & flags) {
 				output.push(name);

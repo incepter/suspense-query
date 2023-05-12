@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+	FiberProducer,
 	FiberPromise,
 	FiberStateFulfilled,
 	FiberStatePending,
@@ -18,11 +19,11 @@ import {
 	resolveComponentName,
 } from "./shared";
 import {
-	TRANSITION,
 	NO_TRANSITION,
-	SubscriptionKind,
-	PENDING_TRANSITION,
 	PENDING,
+	PENDING_TRANSITION,
+	SubscriptionKind,
+	TRANSITION,
 } from "./StateFiberFlags";
 
 export type CurrentGlobals = {
@@ -35,16 +36,16 @@ export let SuspenseDispatcher: CurrentGlobals = {
 };
 
 export function getOrCreateStateFiber<T, A extends unknown[], R>(
-	cache: Map<string, StateFiber<T, A, R>>,
-	name: string,
+	cache: Map<FiberProducer<T, A, R>, StateFiber<T, A, R>>,
+	query: FiberProducer<T, A, R>,
 	options?: StateFiberConfig<T, A, R>
 ) {
-	if (!cache.has(name)) {
-		let fiber = createFiber<T, A, R>(name, options);
-		cache.set(name, fiber);
+	if (!cache.has(query)) {
+		let fiber = createFiber<T, A, R>(query, options);
+		cache.set(query, fiber);
 		return fiber;
 	}
-	let fiber = cache.get(name) as StateFiber<T, A, R>;
+	let fiber = cache.get(query) as StateFiber<T, A, R>;
 
 	if (options) {
 		assign(fiber.config, options);
@@ -53,14 +54,15 @@ export function getOrCreateStateFiber<T, A extends unknown[], R>(
 }
 
 function createFiber<T, A extends unknown[], R>(
-	name: string,
+	query: FiberProducer<T, A, R>,
 	options?: StateFiberConfig<T, A, R>
 ) {
 	let withoutSource: FiberWithoutSource<T, A, R> = {
-		name,
+		query,
 		cache: null,
 		updateQueue: null,
 		config: assign({}, options),
+		name: options && options.name,
 
 		args: null,
 		current: null,
@@ -177,7 +179,7 @@ function runStateFiber<T, A extends unknown[], R>(
 	let updatePromise: FiberPromise<T, R> | null = null;
 
 	// when there is fn, set the state (as success) with the first ever argument
-	let fiberFn = fiber.config.fn;
+	let fiberFn = fiber.query;
 	if (!fiberFn) {
 		let value = args[0] as T;
 		updatePromise = tagFulfilledPromise(Promise.resolve(value), value);

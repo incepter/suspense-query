@@ -1,7 +1,10 @@
 import React from "react";
-import { TRANSITION, NO_TRANSITION, SubscriptionKind } from "./StateFiberFlags";
+import { NO_TRANSITION, SubscriptionKind, TRANSITION } from "./StateFiberFlags";
 
-export type StateFiberCacheContextType = Map<string, StateFiber<any, any, any>>;
+export type StateFiberCacheContextType = Map<
+	FiberProducer<any, any, any>,
+	StateFiber<any, any, any>
+>;
 
 export interface FiberStatePending<T, R> extends Promise<T> {
 	status: "pending";
@@ -33,13 +36,14 @@ export type FiberRetainers<T, A extends unknown[], R> = Map<
 >;
 
 export type FiberUpdateQueue<T, A extends unknown[], R> = {
-	args: A,
-	update: FiberPromise<T, R>,
+	args: A;
+	update: FiberPromise<T, R>;
 	next: FiberUpdateQueue<T, A, R> | null;
-}
+};
 
 export interface StateFiber<T, A extends unknown[], R> {
-	name: string;
+	name?: string;
+	query: FiberProducer<T, A, R>;
 	config: StateFiberConfig<T, A, R>;
 	cache: Map<A, FiberState<T, R>> | null;
 
@@ -86,6 +90,7 @@ export type StateFiberListener<T, A extends unknown[], R> = {
 };
 
 export interface StateFiberConfig<T, A extends unknown[], R> {
+	name?: string;
 	initialValue?: T;
 
 	enableCache?: boolean;
@@ -97,8 +102,6 @@ export interface StateFiberConfig<T, A extends unknown[], R> {
 
 	effectDurationMs?: number;
 	effect?: "debounce" | "throttle";
-
-	fn?: FiberProducer<T, A, R>;
 }
 
 export interface UseDataOptions<T, A extends unknown[], R>
