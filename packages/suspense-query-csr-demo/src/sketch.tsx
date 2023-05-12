@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import DefaultErrorBoundary from "./app/error-boundary";
-import { useQueryControl, useQueryData } from "suspense-query";
+import { useQueryControls, useQueryData } from "suspense-query";
 import { API } from "./app/api";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -12,28 +12,27 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 				<React.Suspense fallback="LoadingApp">
 					{/*<br />*/}
 
-					<CounterDemo />
-					<UserId />
-					<hr />
-					<React.Suspense fallback=".....">
-						<UserDetailsDemo />
-					</React.Suspense>
+					{/*<CounterDemo />*/}
+					{/*<UserId />*/}
+					{/*<hr />*/}
+					{/*<React.Suspense fallback=".....">*/}
+					{/*	<UserDetailsDemo />*/}
+					{/*</React.Suspense>*/}
 					<React.Suspense fallback=".....">
 						<SearchDisplayDemoParent />
 					</React.Suspense>
 					<SearchDemo />
 					<hr />
-					<React.Suspense fallback="....."></React.Suspense>
-					<PendingBar stateName="search" />
+					{/*<PendingBar query="search" />*/}
 				</React.Suspense>
 				<hr />
-				<PendingBar stateName="search" />
-				<hr />
-				<PendingBar stateName="counter" />
-				<hr />
-				<PendingBar stateName="userId" />
-				<hr />
-				<PendingBar stateName="user-details" />
+				<PendingBar query={delayedIdentity} />
+				{/*<hr />*/}
+				<PendingBar query={counter} />
+				{/*<hr />*/}
+				{/*<PendingBar query="userId" />*/}
+				{/*<hr />*/}
+				<PendingBar query={getUserDetails} />
 			</DefaultErrorBoundary>
 		</Wrapper>
 	</React.StrictMode>
@@ -53,9 +52,13 @@ function Wrapper({ init = true, children }) {
 	);
 }
 
+function counter(arg = 0) {
+	return arg + 1
+}
+
 function CounterDemo() {
-	let count = useQueryData("counter", { initialValue: 0 });
-	let { setData } = useQueryControl("counter");
+	let count = useQueryData(counter, { initialValue: 0 });
+	let { setData } = useQueryControls(counter);
 
 	return (
 		<div>
@@ -65,15 +68,14 @@ function CounterDemo() {
 }
 
 function UserId() {
-	let userId = useQueryData("userId", { initialValue: "1" });
-	let [value, setValue] = React.useState(userId);
-	let { run: search, isPending } = useQueryControl("user-details");
+	let [value, setValue] = React.useState("1");
+	let { run: search, isPending } = useQueryControls(getUserDetails);
 	return (
 		<div>
 			<input value={value} onChange={(e) => setValue(e.target.value)} />
 			<button
 				onClick={() => {
-					search(value);
+					search(+value);
 				}}
 			>
 				search {isPending ? " ..." : ""}
@@ -96,34 +98,13 @@ async function getUserDetails(id: number) {
 }
 
 function UsersListDemo() {
-	let users = useQueryData("users", { fn: getUsers });
+	let users = useQueryData(getUsers);
 
 	return (
 		<div>
 			<details>
 				<summary>Users {users.length}</summary>
 				<pre>{JSON.stringify(users, null, 4)}</pre>
-			</details>
-		</div>
-	);
-}
-
-function UserDetailsDemo() {
-	let userId = useQueryData<number, never, never>("userId");
-	console.log("____UseData1Demo_____start");
-	let userData = useQueryData("user-details", {
-		fn: getUserDetails,
-		initialArgs: [userId],
-	});
-	console.log("____UseData1Demo_____end");
-
-	return (
-		<div>
-			<details>
-				<summary>
-					User {userData.id} - {userData.username}
-				</summary>
-				<pre>{JSON.stringify(userData, null, 4)}</pre>
 			</details>
 		</div>
 	);
@@ -138,9 +119,9 @@ function delayedIdentity(id: string) {
 }
 
 function SearchDemo() {
-	console.log("query controls start ---");
-	const { isPending, run } = useQueryControl("search");
-	console.log("query controls End ---");
+	// console.log("query controls start ---");
+	const { isPending, run } = useQueryControls(delayedIdentity);
+	// console.log("query controls End ---");
 	return (
 		<div>
 			<span>
@@ -152,12 +133,11 @@ function SearchDemo() {
 }
 
 function SearchDisplayDemo() {
-	console.log("data start");
-	const searchResult = useQueryData("search", {
+	// console.log("data start");
+	const searchResult = useQueryData(delayedIdentity, {
 		initialArgs: ["14"],
-		fn: delayedIdentity,
 	});
-	console.log("data end");
+	// console.log("data end");
 	return (
 		<div>
 			<details open>
@@ -174,7 +154,7 @@ function SearchDisplayDemoParent() {
 		<div>
 			<button
 				onClick={() => {
-					console.log("click");
+					// console.log("click");
 					rerender((prev) => prev + 1);
 				}}
 			>
@@ -187,13 +167,13 @@ function SearchDisplayDemoParent() {
 	);
 }
 
-function PendingBar({ stateName }: { stateName: string }) {
-	let { isPending } = useQueryControl(stateName);
+function PendingBar({ query }: { query: (...args: any[]) => any }) {
+	let { isPending } = useQueryControls(query);
 
 	return (
 		<div>
 			<span>
-				{stateName} is {isPending ? " ____Pending____" : " Not pending"}
+				{query.name} is {isPending ? " ____Pending____" : " Not pending"}
 			</span>
 		</div>
 	);

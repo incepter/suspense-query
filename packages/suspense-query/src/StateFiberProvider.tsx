@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { StateFiber, StateFiberCacheContextType } from "./types";
+import { FiberProducer, StateFiber, StateFiberCacheContextType } from "./types";
 
 export const StateFiberCacheContext =
 	React.createContext<StateFiberCacheContextType | null>(null);
@@ -31,7 +31,7 @@ export function Provider({
 	children,
 }: {
 	children: React.ReactNode;
-	cache?: Map<string, StateFiber<any, any, any>>;
+	cache?: Map<FiberProducer<any, any, any>, StateFiber<any, any, any>>;
 }) {
 	let cacheToUse = cache;
 	if (!cacheToUse) {
