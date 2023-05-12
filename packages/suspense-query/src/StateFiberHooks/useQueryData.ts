@@ -1,41 +1,16 @@
-import * as React from "react";
-import {
-	FiberProducer,
-	FiberStateRejected,
-	StateFiber,
-	StateFiberListener,
-	UseDataOptions,
-	UseQueryControlReturn,
-} from "./types";
-import { useStateFiberCache } from "./StateFiberProvider";
+import { useSubscribeToFiber } from "./useSubscribe";
+import { FiberProducer, StateFiber, UseDataOptions } from "../types";
+import { useStateFiberCache } from "../StateFiberProvider";
 import {
 	getOrCreateStateFiber,
 	SuspenseDispatcher,
 	tagFulfilledPromise,
-} from "./StateFiber";
-import { __DEV__, didDepsChange, emptyArray, hasOwnProp } from "./shared";
-import { reactUse } from "./Use";
-import {
-	COMMITTED,
-	NO_TRANSITION,
-	RENDERING,
-	SubscriptionKind,
-	TRANSITION,
-} from "./StateFiberFlags";
+} from "../StateFiber";
+import { __DEV__, didDepsChange, emptyArray, hasOwnProp } from "../shared";
+import { RENDERING, TRANSITION } from "../StateFiberFlags";
+import { reactUse } from "../Use";
 
 let didWarnAboutUsingBothArgsAndInitialArgs = false;
-
-function useSubscribeToFiber<T, A extends unknown[], R>(
-	kind: SubscriptionKind,
-	fiber: StateFiber<T, A, R>
-) {
-	let forceUpdate = React.useState(0)[1];
-	let [isPending, _start] = React.useTransition();
-	let subscription = fiber.retain(kind, forceUpdate, _start, isPending);
-
-	React.useLayoutEffect(() => commitSubscription(fiber, subscription));
-	return subscription;
-}
 
 export function useQueryData<T, A extends unknown[], R>(
 	query: FiberProducer<T, A, R>,
@@ -60,56 +35,6 @@ export function useQueryData<T, A extends unknown[], R>(
 
 	subscription.flags |= RENDERING;
 	return reactUse(fiber.alternate || fiber.current);
-}
-
-export function useQueryError<R = unknown>(
-	query: FiberProducer<any, any, R>
-): R | null {
-	let cache = useStateFiberCache();
-	let fiber = getOrCreateStateFiber<any, any, R>(cache, query);
-
-	useSubscribeToFiber(TRANSITION, fiber);
-	return (fiber.current as FiberStateRejected<any, R>)?.reason ?? null;
-}
-
-export function useQueryControl<
-	T,
-	A extends unknown[] = unknown[],
-	R = unknown
->(query: FiberProducer<T, A, R>): UseQueryControlReturn<T, A, R> {
-	let cache = useStateFiberCache();
-	let fiber = getOrCreateStateFiber<T, A, R>(cache, query);
-
-	let isPending = !!fiber.alternate;
-	let { start } = useSubscribeToFiber(NO_TRANSITION, fiber);
-
-	return React.useMemo(
-		() => ({
-			isPending,
-			setData(data: T) {
-				let prevTransitionFn = SuspenseDispatcher.startTransition;
-
-				SuspenseDispatcher.startTransition = start;
-				fiber.setData(data);
-				SuspenseDispatcher.startTransition = prevTransitionFn;
-			},
-			setError(error: R) {
-				let prevTransitionFn = SuspenseDispatcher.startTransition;
-
-				SuspenseDispatcher.startTransition = start;
-				fiber.setError(error);
-				SuspenseDispatcher.startTransition = prevTransitionFn;
-			},
-			run(...args: A) {
-				let prevTransitionFn = SuspenseDispatcher.startTransition;
-
-				SuspenseDispatcher.startTransition = start;
-				fiber.run.apply(null, args);
-				SuspenseDispatcher.startTransition = prevTransitionFn;
-			},
-		}),
-		[fiber, start, isPending]
-	);
 }
 
 function renderFiber<T, A extends unknown[], R>(
@@ -154,24 +79,6 @@ function updateStateFiber<T, A extends unknown[], R>(
 	} else {
 		runFiberFunctionOnRender(fiber, args);
 	}
-}
-
-function commitSubscription<T, A extends unknown[], R>(
-	fiber: StateFiber<T, A, R>,
-	subscription: StateFiberListener<T, A, R>
-) {
-	if (!fiber.retainers[subscription.kind]) {
-		fiber.retainers[subscription.kind] = new Map();
-	}
-
-	let actualRetainers = fiber.retainers[subscription.kind]!;
-	actualRetainers.set(subscription.update, subscription);
-
-	subscription.flags |= COMMITTED;
-	return () => {
-		subscription.clean();
-		subscription.flags &= ~COMMITTED;
-	};
 }
 
 function warnInDevAboutIncompatibleOptions(

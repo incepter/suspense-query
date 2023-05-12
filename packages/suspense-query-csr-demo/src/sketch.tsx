@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import DefaultErrorBoundary from "./app/error-boundary";
-import { useQueryControl, useQueryData } from "suspense-query";
+import { useQueryControls, useQueryData } from "suspense-query";
 import { API } from "./app/api";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -58,7 +58,7 @@ function counter(arg = 0) {
 
 function CounterDemo() {
 	let count = useQueryData(counter, { initialValue: 0 });
-	let { setData } = useQueryControl(counter);
+	let { setData } = useQueryControls(counter);
 
 	return (
 		<div>
@@ -69,7 +69,7 @@ function CounterDemo() {
 
 function UserId() {
 	let [value, setValue] = React.useState("1");
-	let { run: search, isPending } = useQueryControl(getUserDetails);
+	let { run: search, isPending } = useQueryControls(getUserDetails);
 	return (
 		<div>
 			<input value={value} onChange={(e) => setValue(e.target.value)} />
@@ -119,9 +119,9 @@ function delayedIdentity(id: string) {
 }
 
 function SearchDemo() {
-	console.log("query controls start ---");
-	const { isPending, run } = useQueryControl(delayedIdentity);
-	console.log("query controls End ---");
+	// console.log("query controls start ---");
+	const { isPending, run } = useQueryControls(delayedIdentity);
+	// console.log("query controls End ---");
 	return (
 		<div>
 			<span>
@@ -133,11 +133,11 @@ function SearchDemo() {
 }
 
 function SearchDisplayDemo() {
-	console.log("data start");
+	// console.log("data start");
 	const searchResult = useQueryData(delayedIdentity, {
 		initialArgs: ["14"],
 	});
-	console.log("data end");
+	// console.log("data end");
 	return (
 		<div>
 			<details open>
@@ -154,7 +154,7 @@ function SearchDisplayDemoParent() {
 		<div>
 			<button
 				onClick={() => {
-					console.log("click");
+					// console.log("click");
 					rerender((prev) => prev + 1);
 				}}
 			>
@@ -168,7 +168,7 @@ function SearchDisplayDemoParent() {
 }
 
 function PendingBar({ query }: { query: (...args: any[]) => any }) {
-	let { isPending } = useQueryControl(query);
+	let { isPending } = useQueryControls(query);
 
 	return (
 		<div>
