@@ -12,26 +12,22 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 				<React.Suspense fallback="LoadingApp">
 					{/*<br />*/}
 
-					{/*<CounterDemo />*/}
-					{/*<UserId />*/}
-					{/*<hr />*/}
+					<CounterDemo />
+					<UserId />
+					<hr />
 					{/*<React.Suspense fallback=".....">*/}
 					<UserDetailsDemo />
 					<MutationDemo />
 					{/*</React.Suspense>*/}
-					{/*<React.Suspense fallback=".....">*/}
-					{/*	<SearchDisplayDemoParent />*/}
-					{/*</React.Suspense>*/}
-					{/*<SearchDemo />*/}
-					<hr />
-					{/*<PendingBar query="search" />*/}
+					<React.Suspense fallback=".....">
+						<SearchDisplayDemoParent />
+					</React.Suspense>
+					<SearchDemo />
 				</React.Suspense>
 				<hr />
-				{/*<PendingBar query={delayedIdentity} />*/}
+				<PendingBar query={delayedIdentity} />
 				{/*<hr />*/}
-				{/*<PendingBar query={counter} />*/}
-				{/*<hr />*/}
-				{/*<PendingBar query="userId" />*/}
+				<PendingBar query={counter} />
 				{/*<hr />*/}
 				<PendingBar query={getUserDetails} />
 			</DefaultErrorBoundary>

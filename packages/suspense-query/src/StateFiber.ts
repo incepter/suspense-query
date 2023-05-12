@@ -17,7 +17,6 @@ import {
 	__DEV__,
 	assign,
 	defaultUpdater,
-	didDepsChange,
 	isPromise,
 	resolveComponentName,
 } from "./shared";
@@ -289,24 +288,24 @@ function applyUpdate<T, A extends unknown[], R>(
 			next: null,
 		};
 	}
+	if (!fiber.current) {
+		processUpdateQueue(fiber);
+	}
 
 	if (isRendering) {
 		let currentTransition = SuspenseDispatcher.startTransition;
-		processUpdateQueue(fiber);
-		evictFiberDependencies(fiber, deps);
 
 		setTimeout(() => {
 			let capturedTransition = SuspenseDispatcher.startTransition;
 			SuspenseDispatcher.startTransition = currentTransition;
+			processUpdateQueue(fiber);
+			evictFiberDependencies(fiber, deps);
 			notifyFiberListeners(fiber);
 			SuspenseDispatcher.startTransition = capturedTransition;
 		});
 	} else {
 		processUpdateQueue(fiber);
 		evictFiberDependencies(fiber, deps);
-		if (fiber.current?.status === "fulfilled") {
-		}
-
 		notifyFiberListeners(fiber);
 	}
 }
