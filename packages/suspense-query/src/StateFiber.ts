@@ -8,7 +8,8 @@ import {
 	FiberWithoutSource,
 	QueryToInvalidate,
 	RunReturn,
-	StateFiber, StateFiberCacheContextType,
+	StateFiber,
+	StateFiberCacheContextType,
 	StateFiberConfig,
 	StateFiberListener,
 } from "./types";
@@ -16,6 +17,7 @@ import {
 	__DEV__,
 	assign,
 	defaultUpdater,
+	didDepsChange,
 	isPromise,
 	resolveComponentName,
 } from "./shared";
@@ -56,7 +58,7 @@ export function getOrCreateStateFiber<T, A extends unknown[], R>(
 
 function createFiber<T, A extends unknown[], R>(
 	root: StateFiberCacheContextType,
-  query: FiberProducer<T, A, R>,
+	query: FiberProducer<T, A, R>,
 	options?: StateFiberConfig<T, A, R>
 ) {
 	let withoutSource: FiberWithoutSource<T, A, R> = {
@@ -254,9 +256,9 @@ function evictFiberDependencies<T, A extends unknown[], R>(
 	let cache = fiber.root;
 	for (let dep of deps) {
 		let fn = typeof dep === "function" ? dep : dep.query;
-		// let args = typeof dep === "function" ? null : dep.args;
 		let maybeTargetFiber = cache.get(fn);
 		if (maybeTargetFiber) {
+			maybeTargetFiber.current = null;
 			notifyFiberListeners(maybeTargetFiber);
 		}
 	}
