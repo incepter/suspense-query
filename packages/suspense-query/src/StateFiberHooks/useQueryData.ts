@@ -3,8 +3,9 @@ import { FiberProducer, StateFiber, UseDataOptions } from "../types";
 import { useStateFiberCache } from "../StateFiberProvider";
 import {
 	getOrCreateStateFiber,
+	runStateFiber,
 	SuspenseDispatcher,
-	tagFulfilledPromise,
+	tagFulfilled,
 } from "../StateFiber";
 import { __DEV__, didDepsChange, emptyArray, hasOwnProp } from "../shared";
 import { RENDERING, TRANSITION } from "../StateFiberFlags";
@@ -61,7 +62,7 @@ function mountStateFiber<T, A extends unknown[], R>(
 		let init = config.initialValue;
 		if (init !== undefined) {
 			fiber.alternate = null;
-			fiber.current = tagFulfilledPromise(Promise.resolve(init), init);
+			fiber.current = tagFulfilled(Promise.resolve(init), init);
 		}
 	} else {
 		runFiberFunctionOnRender(fiber, args);
@@ -110,7 +111,7 @@ function runFiberFunctionOnRender<T, A extends unknown[], R>(
 
 	try {
 		SuspenseDispatcher.isRenderPhaseRun = true;
-		fiber.run.apply(null, args);
+		runStateFiber(fiber, args);
 	} finally {
 		SuspenseDispatcher.isRenderPhaseRun = prevIsRenderPhaseRun;
 	}

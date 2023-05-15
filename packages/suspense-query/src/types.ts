@@ -1,7 +1,7 @@
 import React from "react";
 import { NO_TRANSITION, SubscriptionKind, TRANSITION } from "./StateFiberFlags";
 
-export type StateFiberCacheContextType = Map<
+export type StateFiberCache = Map<
 	FiberProducer<any, any, any>,
 	StateFiber<any, any, any>
 >;
@@ -49,7 +49,7 @@ export type QueryToInvalidate<T, A extends unknown[], R> =
 	| FiberProducer<T, A, R>;
 
 export interface StateFiber<T, A extends unknown[], R> {
-	root: StateFiberCacheContextType;
+	root: StateFiberCache;
 
 	name?: string;
 	query: FiberProducer<T, A, R>;
@@ -67,34 +67,15 @@ export interface StateFiber<T, A extends unknown[], R> {
 		[NO_TRANSITION]: FiberRetainers<T, A, R> | null;
 	};
 
-	setData(data: T): void;
-
-	setError(error: R): void;
-
-	run(...args: A): RunReturn<T, R>;
-
-	retain(
-		kind: SubscriptionKind,
-		update: React.Dispatch<React.SetStateAction<number>>,
-		startTransition: React.TransitionStartFunction,
-		isPending: boolean
-	): StateFiberListener<T, A, R>;
-
 	// evictAll(): void;
 	// evict(...args: A): void;
 }
 
-export type FiberWithoutSource<T, A extends unknown[], R> = Omit<
-	StateFiber<T, A, R>,
-	"source" | "run" | "setData" | "setError" | "retain"
->;
-
 export type StateFiberListener<T, A extends unknown[], R> = {
-	at?: string; // dev mode
+	at?: string; // dev mode, component or hook name
 	flags: number;
 	clean: () => void;
 	kind: SubscriptionKind;
-	// run: (...args: A) => RunReturn<T, R>;
 	start: React.TransitionStartFunction;
 	update: React.Dispatch<React.SetStateAction<number>>;
 };

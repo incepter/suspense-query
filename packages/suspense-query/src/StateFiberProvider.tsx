@@ -1,9 +1,9 @@
 import * as React from "react";
 
-import { FiberProducer, StateFiber, StateFiberCacheContextType } from "./types";
+import { FiberProducer, StateFiber, StateFiberCache } from "./types";
 
 export const StateFiberCacheContext =
-	React.createContext<StateFiberCacheContextType | null>(null);
+	React.createContext<StateFiberCache | null>(null);
 
 const STATE_FIBER_GLOBAL_PROP = "__STATE_FIBER_CONTEXT__";
 
@@ -17,7 +17,7 @@ function getOrCreateGlobalContext() {
 	return globalContext;
 }
 
-export function useStateFiberCache(): StateFiberCacheContextType {
+export function useStateFiberCache(): StateFiberCache {
 	let context = React.useContext(StateFiberCacheContext);
 	if (context === null) {
 		// in client use this, in server throw that cache is required

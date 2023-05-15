@@ -5,11 +5,10 @@ import {
 	FiberStateFulfilled,
 	FiberStatePending,
 	FiberStateRejected,
-	FiberWithoutSource,
 	QueryToInvalidate,
 	RunReturn,
 	StateFiber,
-	StateFiberCacheContextType,
+	StateFiberCache,
 	StateFiberConfig,
 	StateFiberListener,
 } from "./types";
@@ -56,11 +55,11 @@ export function getOrCreateStateFiber<T, A extends unknown[], R>(
 }
 
 function createFiber<T, A extends unknown[], R>(
-	root: StateFiberCacheContextType,
+	root: StateFiberCache,
 	query: FiberProducer<T, A, R>,
 	options?: StateFiberConfig<T, A, R>
 ) {
-	let withoutSource: FiberWithoutSource<T, A, R> = {
+	let fiber: StateFiber<T, A, R> = {
 		root,
 
 		query,
@@ -78,34 +77,12 @@ function createFiber<T, A extends unknown[], R>(
 		},
 	};
 
-	let fiber = withoutSource as StateFiber<T, A, R>;
-	bindFiberMethods(fiber);
-
 	let init = fiber.config.initialValue;
 	if (init !== undefined) {
-		fiber.current = tagFulfilledPromise(Promise.resolve(init), init);
+		fiber.current = tagFulfilled(Promise.resolve(init), init);
 	}
 
 	return fiber;
-}
-
-function bindFiberMethods<T, A extends unknown[], R>(
-	fiber: StateFiber<T, A, R>
-) {
-	fiber.run = (runStateFiber as typeof runStateFiber<T, A, R>).bind(
-		null,
-		fiber
-	);
-	fiber.setData = (setStateFiberData as typeof setStateFiberData<T, A, R>).bind(
-		null,
-		fiber
-	);
-	fiber.setError = (
-		setStateFiberError as typeof setStateFiberError<T, A, R>
-	).bind(null, fiber);
-	fiber.retain = (
-		createSubscription as typeof createSubscription<T, A, R>
-	).bind(null, fiber);
 }
 
 function getInitialSubscriptionFlags(
@@ -124,7 +101,7 @@ function getInitialSubscriptionFlags(
 	return flags;
 }
 
-export function createSubscription<T, A extends unknown[], R>(
+export function retain<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	kind: SubscriptionKind,
 	update: React.Dispatch<React.SetStateAction<number>>,
@@ -135,8 +112,8 @@ export function createSubscription<T, A extends unknown[], R>(
 		kind,
 		update,
 		start: startTransition,
-		flags: getInitialSubscriptionFlags(fiber, isPending),
 		at: __DEV__ ? resolveComponentName() : undefined,
+		flags: getInitialSubscriptionFlags(fiber, isPending),
 	};
 
 	function clean() {
@@ -155,47 +132,24 @@ export function createSubscription<T, A extends unknown[], R>(
 	return subscription as StateFiberListener<T, A, R>;
 }
 
-function setStateFiberData<T, A extends unknown[], R>(
+export function runStateFiber<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
-	data: T
-): void {
-	applyUpdate(
-		fiber,
-		[data] as A,
-		tagFulfilledPromise(Promise.resolve(data), data),
-		fiber.dependencies
-	);
-}
-
-function setStateFiberError<T, A extends unknown[], R>(
-	fiber: StateFiber<T, A, R>,
-	error: R
-): void {
-	applyUpdate(
-		fiber,
-		[error] as A,
-		tagRejectedPromise(Promise.reject(error), error),
-		fiber.dependencies
-	);
-}
-
-function runStateFiber<T, A extends unknown[], R>(
-	fiber: StateFiber<T, A, R>,
-	...args: A
+	args: A
 ): RunReturn<T, R> {
 	let updatePromise: FiberPromise<T, R> | null = null;
 
 	// when there is fn, set the state (as success) with the first ever argument
 	let fiberFn = fiber.query;
-	let dependencies = fiber.dependencies;
+	let deps = fiber.dependencies;
 	if (!fiberFn) {
 		let value = args[0] as T;
-		updatePromise = tagFulfilledPromise(Promise.resolve(value), value);
-		applyUpdate(fiber, args, updatePromise, dependencies);
+		updatePromise = tagFulfilled(Promise.resolve(value), value);
+		applyUpdate(fiber, args, updatePromise, deps);
 		return;
 	}
 
 	let result = fiberFn.apply(null, args);
+
 	if (isPromise(result)) {
 		let maybeKnown = result as FiberPromise<T, R>;
 		if (maybeKnown.status) {
@@ -208,39 +162,33 @@ function runStateFiber<T, A extends unknown[], R>(
 				}
 			}
 		} else {
-			updatePromise = tagPendingPromise(result);
+			updatePromise = tagPending(result);
 			result.then(
 				(value) => {
+					// tag the fulfilled promise so it is recognized next time
+					let resolvingPromise = tagFulfilled(updatePromise!, value);
+
+					// apply update on fiber only if its the currently pending promise
+					// or else, this means it is a stale closure, but we tag it either
+					// ways in the expression before.
 					if (fiber.alternate === updatePromise) {
-						applyUpdate(
-							fiber,
-							args,
-							tagFulfilledPromise(updatePromise!, value),
-							dependencies
-						);
+						applyUpdate(fiber, args, resolvingPromise, deps);
 					}
 				},
 				(reason) => {
+					// same as the comments in the other 'then success callback'
+					let rejectingPromise = tagRejected(updatePromise!, reason);
 					if (fiber.alternate === updatePromise) {
-						applyUpdate(
-							fiber,
-							args,
-							tagRejectedPromise(updatePromise!, reason),
-							dependencies
-						);
+						applyUpdate(fiber, args, rejectingPromise, deps);
 					}
 				}
 			);
 		}
 
-		applyUpdate(fiber, args, updatePromise, dependencies);
+		applyUpdate(fiber, args, updatePromise, deps);
 	} else {
-		applyUpdate(
-			fiber,
-			args,
-			tagFulfilledPromise(Promise.resolve(result), result),
-			dependencies
-		);
+		let resolvingPromise = tagFulfilled(Promise.resolve(result), result);
+		applyUpdate(fiber, args, resolvingPromise, deps);
 	}
 }
 
@@ -263,7 +211,7 @@ function evictFiberDependencies<T, A extends unknown[], R>(
 	}
 }
 
-function applyUpdate<T, A extends unknown[], R>(
+export function applyUpdate<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	args: A,
 	update: FiberPromise<T, R>,
@@ -271,24 +219,18 @@ function applyUpdate<T, A extends unknown[], R>(
 ) {
 	let isRendering = SuspenseDispatcher.isRenderPhaseRun;
 
-	if (!fiber.updateQueue) {
-		fiber.updateQueue = {
-			args,
-			update,
-			next: null,
-		};
+	if (fiber.updateQueue === null) {
+		fiber.updateQueue = { args, update, next: null };
 	} else {
 		let queue = fiber.updateQueue;
 		while (queue.next !== null) {
 			queue = queue.next;
 		}
-		queue.next = {
-			args,
-			update,
-			next: null,
-		};
+		queue.next = { args, update, next: null, };
 	}
-	if (!fiber.current) {
+
+	// eagerly process the queue (it should have one element in theory)
+	if (fiber.current === null) {
 		processUpdateQueue(fiber);
 	}
 
@@ -341,7 +283,7 @@ function notifyFiberListeners(fiber: StateFiber<any, any, any>) {
 	});
 }
 
-export function tagFulfilledPromise<T>(
+export function tagFulfilled<T>(
 	promise: Promise<T>,
 	value: T
 ): FiberStateFulfilled<T> {
@@ -351,7 +293,7 @@ export function tagFulfilledPromise<T>(
 	return fulfilledPromise;
 }
 
-export function tagRejectedPromise<T, R>(
+export function tagRejected<T, R>(
 	promise: Promise<any>,
 	reason: R
 ): FiberStateRejected<T, R> {
@@ -361,7 +303,7 @@ export function tagRejectedPromise<T, R>(
 	return fulfilledPromise;
 }
 
-export function tagPendingPromise<T, A extends unknown[], R>(
+export function tagPending<T, A extends unknown[], R>(
 	promise: Promise<T>
 ): FiberStatePending<T, R> {
 	let fulfilledPromise = promise as FiberStatePending<T, R>;

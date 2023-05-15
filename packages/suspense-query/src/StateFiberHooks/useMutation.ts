@@ -1,7 +1,10 @@
-import * as React from "react";
-import { FiberProducer, QueryToInvalidate, StateFiber } from "../types";
+import { FiberProducer, QueryToInvalidate } from "../types";
 import { useStateFiberCache } from "../StateFiberProvider";
-import { getOrCreateStateFiber, SuspenseDispatcher } from "../StateFiber";
+import {
+	getOrCreateStateFiber,
+	runStateFiber,
+	SuspenseDispatcher,
+} from "../StateFiber";
 import { useSubscribeToFiber } from "./useSubscribe";
 import { NO_TRANSITION } from "../StateFiberFlags";
 
@@ -21,7 +24,7 @@ export function useMutation<T, A extends unknown[], R>(
 		fiber.dependencies = queriesToInvalidate || null;
 		SuspenseDispatcher.startTransition = subscription.start;
 
-		fiber.run.apply(null, args);
+		runStateFiber(fiber, args);
 
 		fiber.dependencies = prevFiberDeps;
 		SuspenseDispatcher.startTransition = prevTransitionFn;

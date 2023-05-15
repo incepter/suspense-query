@@ -1,6 +1,7 @@
 import * as React from "react";
 import { COMMITTED, SubscriptionKind } from "../StateFiberFlags";
 import { StateFiber, StateFiberListener } from "../types";
+import { retain } from "../StateFiber";
 
 export function useSubscribeToFiber<T, A extends unknown[], R>(
 	kind: SubscriptionKind,
@@ -8,7 +9,7 @@ export function useSubscribeToFiber<T, A extends unknown[], R>(
 ) {
 	let forceUpdate = React.useState(0)[1];
 	let [isPending, _start] = React.useTransition();
-	let subscription = fiber.retain(kind, forceUpdate, _start, isPending);
+	let subscription = retain(fiber, kind, forceUpdate, _start, isPending);
 
 	React.useLayoutEffect(() => commitSubscription(fiber, subscription));
 	return subscription;

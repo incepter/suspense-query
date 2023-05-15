@@ -6,7 +6,7 @@ import {
 	FiberStateRejected,
 	PromiseWithOptionalStatus,
 } from "./types";
-import { tagFulfilledPromise, tagRejectedPromise } from "./StateFiber";
+import { tagFulfilled, tagRejected } from "./StateFiber";
 
 // @ts-expect-error React.use type
 export const reactUse = React.use || useShim;
@@ -27,13 +27,13 @@ function useShim<T, R>(promise: Promise<T>) {
 				pendingThenable.then(
 					(fulfilledValue) => {
 						if (thenable.status === "pending") {
-							tagFulfilledPromise(thenable, fulfilledValue);
+							tagFulfilled(thenable, fulfilledValue);
 						}
 						return fulfilledValue;
 					},
 					(error: R) => {
 						if (thenable.status === "pending") {
-							tagRejectedPromise(thenable, error);
+							tagRejected(thenable, error);
 						}
 						throw error;
 					}
