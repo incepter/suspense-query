@@ -2,13 +2,16 @@ import { useSubscribeToFiber } from "./useSubscribe";
 import { FiberProducer, StateFiber, UseDataOptions } from "../types";
 import { useStateFiberCache } from "../StateFiberProvider";
 import {
+	addSuspendingPromise,
 	getOrCreateStateFiber,
+	removeSuspendingPromise,
 	runStateFiber,
+	suspendingPromises,
 	SuspenseDispatcher,
 	tagFulfilled,
 } from "../StateFiber";
 import { __DEV__, didDepsChange, emptyArray, hasOwnProp } from "../shared";
-import { RENDERING, TRANSITION } from "../StateFiberFlags";
+import { RENDERING, SUSPENDING, TRANSITION } from "../StateFiberFlags";
 import { reactUse } from "../Use";
 
 let didWarnAboutUsingBothArgsAndInitialArgs = false;
@@ -35,7 +38,36 @@ export function useQueryData<T, A extends unknown[], R>(
 	}
 
 	subscription.flags |= RENDERING;
-	return reactUse(fiber.alternate || fiber.current);
+	if (fiber.alternate !== null && fiber.current === null) {
+		// this branch means that we will be suspending next
+		// when suspending, this subscription doesn't appear in the listeners Map
+		// because effects aren't triggerred. If it appears and is updated, react
+		// will warn that this component isn't mounted, so its update should be called.
+		// to sync the very first transition outside the current suspense boundary
+		// (aka via useQueryControls), we ll commit imperatively here this subscription
+		// then, queryControls won't transition to resolved status unless
+		// this component renders back from suspending.
+		// rendering back from suspense isn't guaranteed, we'll need to evict it
+		// or keep it in another place.
+		addSuspendingPromise(fiber.alternate);
+		subscription.flags |= SUSPENDING;
+	}
+
+	let result = reactUse(fiber.alternate || fiber.current);
+
+	if (suspendingPromises.has(fiber.current!)) {
+		// this means that this component rendered successfully after suspending
+		// and his promise resolved.
+		// now we will tag this subscription that will be committed by the
+		// SUSPENDING tag, so it s clear that it rendered back from suspending and
+		// that we need to sync it to other subscribers.
+		// remove any suspender from the retainers list, we are re-rendering again.
+		// todo: flush updateQueue if there are no retainers
+		subscription.flags |= SUSPENDING;
+		removeSuspendingPromise(fiber.current);
+	}
+
+	return result;
 }
 
 function renderFiber<T, A extends unknown[], R>(

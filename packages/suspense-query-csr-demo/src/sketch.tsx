@@ -9,27 +9,41 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
 		<Wrapper>
 			<DefaultErrorBoundary>
-				<React.Suspense fallback="LoadingApp">
-					{/*<br />*/}
+				<section style={{ padding: 8, border: "1px dashed red" }}>
+					<p>Inside Suspense</p>
+					<React.Suspense fallback="Loading You App ..">
+						{/*<br />*/}
 
-					<CounterDemo />
-					<UserId />
-					<hr />
-					{/*<React.Suspense fallback=".....">*/}
-					<UserDetailsDemo />
-					<MutationDemo />
-					{/*</React.Suspense>*/}
-					<React.Suspense fallback=".....">
-						<SearchDisplayDemoParent />
+						<CounterDemo />
+						<UserId />
+						<hr />
+						{/*<React.Suspense fallback=".....">*/}
+						<UserDetailsDemo />
+						<MutationDemo />
+						{/*</React.Suspense>*/}
+						<section style={{ padding: 8, border: "1px dashed red" }}>
+							<p>Inner Suspense</p>
+							<React.Suspense fallback="Loading...">
+								<SearchDisplayDemoParent />
+							</React.Suspense>
+						</section>
+						<SearchDemo />
 					</React.Suspense>
-					<SearchDemo />
-				</React.Suspense>
+				</section>
+
+				<section style={{ padding: 8, border: "1px dashed white" }}>
+					<p>Outside Suspense</p>
+					<PendingBar query={delayedIdentity} />
+					<PendingBar query={delayedIdentity} />
+					<PendingBar query={delayedIdentity} />
+					<PendingBar query={delayedIdentity} />
+					<PendingBar query={delayedIdentity} />
+					{/*<hr />*/}
+					<PendingBar query={counter} />
+					{/*<hr />*/}
+					<PendingBar query={getUserDetails} />
+				</section>
 				<hr />
-				<PendingBar query={delayedIdentity} />
-				{/*<hr />*/}
-				<PendingBar query={counter} />
-				{/*<hr />*/}
-				<PendingBar query={getUserDetails} />
 			</DefaultErrorBoundary>
 		</Wrapper>
 	</React.StrictMode>
@@ -41,7 +55,7 @@ function Wrapper({ init = true, children }) {
 	return (
 		<div>
 			<button onClick={() => setVisible(!visible)}>
-				{visible ? "Hide" : "Show"}
+				{visible ? "Unmount" : "Mount"}
 			</button>
 			<hr />
 			{visible ? children : null}
@@ -65,11 +79,11 @@ function CounterDemo() {
 }
 
 function UserDetailsDemo() {
-	console.log("____UseData1Demo_____start");
+	// console.log("____UseData1Demo_____start");
 	let userData = useQueryData(getUserDetails, {
 		initialArgs: [1],
 	});
-	console.log("____UseData1Demo_____end");
+	// console.log("____UseData1Demo_____end");
 
 	return (
 		<div>

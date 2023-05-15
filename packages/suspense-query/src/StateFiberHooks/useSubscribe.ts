@@ -1,7 +1,12 @@
 import * as React from "react";
-import { COMMITTED, SubscriptionKind } from "../StateFiberFlags";
+import {
+	COMMITTED,
+	SubscriptionKind,
+	SUSPENDING,
+	TRANSITION,
+} from "../StateFiberFlags";
 import { StateFiber, StateFiberListener } from "../types";
-import { retain } from "../StateFiber";
+import { flushQueueAndNotifyListeners, retain } from "../StateFiber";
 
 export function useSubscribeToFiber<T, A extends unknown[], R>(
 	kind: SubscriptionKind,
@@ -15,7 +20,7 @@ export function useSubscribeToFiber<T, A extends unknown[], R>(
 	return subscription;
 }
 
-function commitSubscription<T, A extends unknown[], R>(
+export function commitSubscription<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	subscription: StateFiberListener<T, A, R>
 ) {
@@ -27,6 +32,19 @@ function commitSubscription<T, A extends unknown[], R>(
 	actualRetainers.set(subscription.update, subscription);
 
 	subscription.flags |= COMMITTED;
+
+	if ((subscription.flags &= SUSPENDING)) {
+		// remove other suspending retainers, or just the previous suspending retain
+		fiber.retainers[TRANSITION]?.forEach((sub) => {
+			if ((sub.flags |= SUSPENDING) && !(sub.flags |= COMMITTED)) {
+				sub.clean();
+			}
+		});
+
+		// todo: add deps to queue so that we don't mess things here
+		flushQueueAndNotifyListeners(fiber);
+	}
+
 	return () => {
 		subscription.clean();
 		subscription.flags &= ~COMMITTED;

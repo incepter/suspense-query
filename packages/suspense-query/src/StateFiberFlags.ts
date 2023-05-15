@@ -13,6 +13,7 @@ export const PENDING /*                  */ = 0b0000_1000;
 export const PENDING_TRANSITION /*       */ = 0b0001_0000;
 export const COMMITTED /*                */ = 0b0010_0000;
 export const ERRORED /*                  */ = 0b0100_0000;
+export const SUSPENDING /*               */ = 0b1000_0000;
 
 let devFlagsObject: Record<string, number> = {};
 if (__DEV__) {
@@ -22,6 +23,7 @@ if (__DEV__) {
 		ERRORED: ERRORED,
 		RENDERING: RENDERING,
 		COMMITTED: COMMITTED,
+		SUSPENDING: SUSPENDING,
 		PENDING_AWARE: PENDING_AWARE,
 		PENDING_TRANSITION: PENDING_TRANSITION,
 	};
