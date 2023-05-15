@@ -7,6 +7,7 @@ import {
 } from "../StateFiberFlags";
 import { StateFiber, StateFiberListener } from "../types";
 import { flushQueueAndNotifyListeners, retain } from "../StateFiber";
+import { defaultUpdater } from "../shared";
 
 export function useSubscribeToFiber<T, A extends unknown[], R>(
 	kind: SubscriptionKind,
@@ -16,14 +17,22 @@ export function useSubscribeToFiber<T, A extends unknown[], R>(
 	let [isPending, _start] = React.useTransition();
 	let subscription = retain(fiber, kind, forceUpdate, _start, isPending);
 
-	React.useLayoutEffect(() => commitSubscription(fiber, subscription));
+	let snapshot = fiber.current;
+	React.useLayoutEffect(() =>
+		commitSubscription(fiber, subscription, snapshot)
+	);
 	return subscription;
 }
 
 export function commitSubscription<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
-	subscription: StateFiberListener<T, A, R>
+	subscription: StateFiberListener<T, A, R>,
+	snapshot: StateFiber<T, A, R>["current"]
 ) {
+	if (fiber.current !== snapshot) {
+		subscription.update(defaultUpdater);
+		return;
+	}
 	if (!fiber.retainers[subscription.kind]) {
 		fiber.retainers[subscription.kind] = new Map();
 	}
@@ -34,6 +43,7 @@ export function commitSubscription<T, A extends unknown[], R>(
 	subscription.flags |= COMMITTED;
 
 	if ((subscription.flags &= SUSPENDING)) {
+		subscription.flags &= ~SUSPENDING;
 		// remove other suspending retainers, or just the previous suspending retain
 		fiber.retainers[TRANSITION]?.forEach((sub) => {
 			if ((sub.flags |= SUSPENDING) && !(sub.flags |= COMMITTED)) {

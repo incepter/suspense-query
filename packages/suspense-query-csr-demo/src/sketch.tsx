@@ -10,21 +10,19 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 		<Wrapper>
 			<DefaultErrorBoundary>
 				<section style={{ padding: 8, border: "1px dashed red" }}>
-					<p>Inside Suspense</p>
 					<React.Suspense fallback="Loading You App ..">
-						{/*<br />*/}
+						<p>Inside Suspense</p>
 
 						<CounterDemo />
 						<UserId />
 						<hr />
-						{/*<React.Suspense fallback=".....">*/}
 						<UserDetailsDemo />
 						<MutationDemo />
-						{/*</React.Suspense>*/}
 						<section style={{ padding: 8, border: "1px dashed red" }}>
 							<p>Inner Suspense</p>
 							<React.Suspense fallback="Loading...">
 								<SearchDisplayDemoParent />
+								<PendingBar query={delayedIdentity} />
 							</React.Suspense>
 						</section>
 						<SearchDemo />
@@ -33,7 +31,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 
 				<section style={{ padding: 8, border: "1px dashed white" }}>
 					<p>Outside Suspense</p>
-					<PendingBar query={delayedIdentity} />
 					<PendingBar query={delayedIdentity} />
 					<PendingBar query={delayedIdentity} />
 					<PendingBar query={delayedIdentity} />
@@ -199,6 +196,7 @@ function SearchDisplayDemoParent() {
 
 function PendingBar({ query }: { query: (...args: any[]) => any }) {
 	let { isPending } = useQueryControls(query);
+	// console.log('pending bar', isPending)
 
 	return (
 		<div>
