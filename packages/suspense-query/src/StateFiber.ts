@@ -21,8 +21,6 @@ import {
 } from "./shared";
 import {
 	NO_TRANSITION,
-	PENDING,
-	PENDING_TRANSITION,
 	SubscriptionKind,
 	TRANSITION,
 } from "./StateFiberFlags";
@@ -87,36 +85,18 @@ function createFiber<T, A extends unknown[], R>(
 	return fiber;
 }
 
-function getInitialSubscriptionFlags(
-	fiber: StateFiber<any, any, any>,
-	isPending: boolean
-) {
-	let flags = 0;
-
-	if (fiber.alternate) {
-		flags |= PENDING;
-	}
-	if (isPending) {
-		flags |= PENDING_TRANSITION;
-	}
-
-	return flags;
-}
-
-
 export function retain<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	kind: SubscriptionKind,
 	update: React.Dispatch<React.SetStateAction<number>>,
 	startTransition: React.TransitionStartFunction,
-	isPending: boolean
 ): StateFiberListener<T, A, R> {
 	let subscription: Omit<StateFiberListener<T, A, R>, "clean"> = {
 		kind,
 		update,
+		flags: 0,
 		start: startTransition,
 		at: __DEV__ ? resolveComponentName() : undefined,
-		flags: getInitialSubscriptionFlags(fiber, isPending),
 	};
 
 	function clean() {

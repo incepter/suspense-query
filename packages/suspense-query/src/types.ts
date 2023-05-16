@@ -55,7 +55,6 @@ export interface StateFiber<T, A extends unknown[], R> {
 	query: FiberProducer<T, A, R>;
 	config: StateFiberConfig<T, A, R>;
 
-
 	updateQueue: FiberUpdateQueue<T, A, R> | null;
 	dependencies: QueryToInvalidate<any, any, any>[] | null;
 

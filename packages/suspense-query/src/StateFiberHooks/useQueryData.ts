@@ -11,7 +11,7 @@ import {
 	tagFulfilled,
 } from "../StateFiber";
 import { __DEV__, didDepsChange, emptyArray, hasOwnProp } from "../shared";
-import { RENDERING, SUSPENDING, TRANSITION } from "../StateFiberFlags";
+import { SUSPENDING, TRANSITION } from "../StateFiberFlags";
 import { reactUse } from "../Use";
 
 let didWarnAboutUsingBothArgsAndInitialArgs = false;
@@ -37,7 +37,6 @@ export function useQueryData<T, A extends unknown[], R>(
 		throw new Error(`Query has no initial value.`);
 	}
 
-	subscription.flags |= RENDERING;
 	if (fiber.alternate !== null && fiber.current === null) {
 		// this branch means that we will be suspending next
 		// when suspending, this subscription doesn't appear in the listeners Map

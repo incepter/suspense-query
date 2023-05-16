@@ -14,8 +14,8 @@ export function useSubscribeToFiber<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>
 ) {
 	let forceUpdate = React.useState(0)[1];
-	let [isPending, _start] = React.useTransition();
-	let subscription = retain(fiber, kind, forceUpdate, _start, isPending);
+	let [, _start] = React.useTransition();
+	let subscription = retain(fiber, kind, forceUpdate, _start);
 
 	let snapshot = fiber.current;
 	React.useLayoutEffect(() =>
