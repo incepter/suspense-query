@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { API } from "../../../api";
 import { useQueryData } from "suspense-query";
 import { UserType } from "../../types";
+import { getUserDetails } from "../page";
 
 async function getUserPosts(userId: number) {
 	let result = await API.get(`/users/${userId}/posts`);
@@ -12,11 +13,10 @@ async function getUserPosts(userId: number) {
 export function Component() {
 	let { userId } = useParams();
 
-	let userPosts = useQueryData("getUserPosts", {
-		fn: getUserPosts,
+	let userPosts = useQueryData(getUserPosts, {
 		args: [+userId!],
 	});
-	let currentUser = useQueryData<UserType, [number], never>("getUserDetails");
+	let currentUser = useQueryData<UserType, [number], never>(getUserDetails);
 
 	return (
 		<details open>

@@ -7,46 +7,54 @@ import { API } from "./app/api";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
-		<Wrapper>
-			<DefaultErrorBoundary>
-				<section style={{ padding: 8, border: "1px dashed red" }}>
-					<React.Suspense fallback="Loading You App ..">
-						<p>Inside Suspense</p>
+		<Wrapper init>
+			{() => (
+				<DefaultErrorBoundary>
+					<section style={{ padding: 8, border: "1px dashed red" }}>
+						<React.Suspense fallback="Loading You App ..">
+							<p>Inside Suspense</p>
 
-						<CounterDemo />
-						<UserId />
-						<hr />
-						<UserDetailsDemo />
-						<MutationDemo />
-						<section style={{ padding: 8, border: "1px dashed red" }}>
-							<p>Inner Suspense</p>
-							<React.Suspense fallback="Loading...">
-								<SearchDisplayDemoParent />
-								<PendingBar query={delayedIdentity} />
-							</React.Suspense>
-						</section>
-						<SearchDemo />
-					</React.Suspense>
-				</section>
+							<CounterDemo />
+							<UserId />
+							<hr />
+							<UserDetailsDemo />
+							<MutationDemo />
+							<section style={{ padding: 8, border: "1px dashed red" }}>
+								<p>Inner Suspense</p>
+								<React.Suspense fallback="Loading...">
+									<SearchDisplayDemoParent />
+									<PendingBar query={delayedIdentity} />
+								</React.Suspense>
+							</section>
+							<SearchDemo />
+						</React.Suspense>
+					</section>
 
-				<section style={{ padding: 8, border: "1px dashed white" }}>
-					<p>Outside Suspense</p>
-					<PendingBar query={delayedIdentity} />
-					<PendingBar query={delayedIdentity} />
-					<PendingBar query={delayedIdentity} />
-					<PendingBar query={delayedIdentity} />
-					{/*<hr />*/}
-					<PendingBar query={counter} />
-					{/*<hr />*/}
-					<PendingBar query={getUserDetails} />
-				</section>
-				<hr />
-			</DefaultErrorBoundary>
+					<section style={{ padding: 8, border: "1px dashed white" }}>
+						<p>Outside Suspense</p>
+						<PendingBar query={delayedIdentity} />
+						<PendingBar query={delayedIdentity} />
+						<PendingBar query={delayedIdentity} />
+						<PendingBar query={delayedIdentity} />
+						{/*<hr />*/}
+						<PendingBar query={counter} />
+						{/*<hr />*/}
+						<PendingBar query={getUserDetails} />
+					</section>
+					<hr />
+				</DefaultErrorBoundary>
+			)}
 		</Wrapper>
 	</React.StrictMode>
 );
 
-function Wrapper({ init = true, children }) {
+function Wrapper({
+	init = true,
+	children,
+}: {
+	init: boolean;
+	children: () => React.ReactNode;
+}) {
 	let [visible, setVisible] = React.useState(init);
 
 	return (
@@ -55,7 +63,7 @@ function Wrapper({ init = true, children }) {
 				{visible ? "Unmount" : "Mount"}
 			</button>
 			<hr />
-			{visible ? children : null}
+			{visible ? children() : null}
 		</div>
 	);
 }

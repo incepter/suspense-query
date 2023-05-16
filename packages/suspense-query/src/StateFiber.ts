@@ -19,22 +19,19 @@ import {
 	isPromise,
 	resolveComponentName,
 } from "./shared";
-import {
-	NO_TRANSITION,
-	SubscriptionKind,
-	TRANSITION,
-} from "./StateFiberFlags";
+import { NO_TRANSITION, SubscriptionKind, TRANSITION } from "./StateFiberFlags";
 
 export type CurrentGlobals = {
 	isRenderPhaseRun: boolean;
 	startTransition: React.TransitionStartFunction;
+	notifyingSubscription: StateFiberListener<any, any, any> | null;
 };
 export let suspendingPromises = new WeakSet<any>();
 export let SuspenseDispatcher: CurrentGlobals = {
 	isRenderPhaseRun: false,
+	notifyingSubscription: null,
 	startTransition: React.startTransition,
 };
-
 
 export function getOrCreateStateFiber<T, A extends unknown[], R>(
 	cache: Map<FiberProducer<T, A, R>, StateFiber<T, A, R>>,
@@ -89,7 +86,7 @@ export function retain<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
 	kind: SubscriptionKind,
 	update: React.Dispatch<React.SetStateAction<number>>,
-	startTransition: React.TransitionStartFunction,
+	startTransition: React.TransitionStartFunction
 ): StateFiberListener<T, A, R> {
 	let subscription: Omit<StateFiberListener<T, A, R>, "clean"> = {
 		kind,
@@ -213,7 +210,6 @@ export function applyUpdate<T, A extends unknown[], R>(
 		queue.next = { args, update, next: null };
 	}
 
-
 	// eagerly process the queue (it should have one element in theory)
 	if (fiber.current === null) {
 		// in cases when the current fiber is suspending,
@@ -223,11 +219,13 @@ export function applyUpdate<T, A extends unknown[], R>(
 		// if this promise was suspending a component
 		if (suspendingPromises.has(update)) {
 			// now its fiber should be resolved
-			// todo: 1 - check on retainers and bypass this flow in some cases
 			// eg: if no retainer, apply the update
-			// todo: 2 - set an interval to check back that suspender rendered back
+			// todo: set an interval to check that suspender rendered back
 			// or notify other retainers if any
+
 			if (update.status !== "pending") {
+				// this means that this fiber has no retainer painted on the screen.
+				// so it is safe to apply updates to it
 				return;
 			}
 		}
@@ -239,7 +237,7 @@ export function applyUpdate<T, A extends unknown[], R>(
 }
 
 export function flushQueueAndNotifyListeners<T, A extends unknown[], R>(
-	fiber: StateFiber<T, A, R>,
+	fiber: StateFiber<T, A, R>
 ) {
 	let isRendering = SuspenseDispatcher.isRenderPhaseRun;
 
@@ -261,7 +259,7 @@ export function flushQueueAndNotifyListeners<T, A extends unknown[], R>(
 	}
 }
 
-function processUpdateQueue<T, A extends unknown[], R>(
+export function processUpdateQueue<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>
 ) {
 	let queue = fiber.updateQueue;
@@ -279,9 +277,37 @@ function processUpdateQueue<T, A extends unknown[], R>(
 		}
 		queue = queue.next;
 	}
+	fiber.updateQueue = null;
 }
 
 function notifyFiberListeners(fiber: StateFiber<any, any, any>) {
+	let currentSubscription = SuspenseDispatcher.notifyingSubscription;
+	if (currentSubscription !== null) {
+		notifyAllBut(fiber, currentSubscription);
+	} else {
+		notifyAll(fiber);
+	}
+}
+
+function notifyAllBut(
+	fiber: StateFiber<any, any, any>,
+	currentSubscription: StateFiberListener<any, any, any>
+) {
+	SuspenseDispatcher.startTransition(() => {
+		fiber.retainers[TRANSITION]?.forEach((sub) => {
+			if (currentSubscription !== sub) {
+				sub.update(defaultUpdater);
+			}
+		});
+	});
+	fiber.retainers[NO_TRANSITION]?.forEach((sub) => {
+		if (currentSubscription !== sub) {
+			sub.update(defaultUpdater);
+		}
+	});
+}
+
+function notifyAll(fiber: StateFiber<any, any, any>) {
 	SuspenseDispatcher.startTransition(() => {
 		fiber.retainers[TRANSITION]?.forEach((sub) => {
 			sub.update(defaultUpdater);

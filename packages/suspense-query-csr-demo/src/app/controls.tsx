@@ -1,12 +1,14 @@
 import {useParams} from "react-router-dom";
 import * as React from "react";
-import {useQueryControl} from "suspense-query";
+import {useQueryControls} from "suspense-query";
+import { getUserDetails } from "./users/user-details/page";
+import { getUsersList } from "./users/page";
 
 export default function Controls({children}) {
   let params = useParams()
 
-  let usersApi = useQueryControl("getUserDetails");
-  let userDetailsApi = useQueryControl("getUsersList");
+  let usersApi = useQueryControls(getUserDetails);
+  let userDetailsApi = useQueryControls(getUsersList);
 
   return (
     <div>

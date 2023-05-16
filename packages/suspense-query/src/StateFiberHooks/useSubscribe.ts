@@ -6,7 +6,11 @@ import {
 	TRANSITION,
 } from "../StateFiberFlags";
 import { StateFiber, StateFiberListener } from "../types";
-import { flushQueueAndNotifyListeners, retain } from "../StateFiber";
+import {
+	flushQueueAndNotifyListeners,
+	retain,
+	SuspenseDispatcher,
+} from "../StateFiber";
 import { defaultUpdater } from "../shared";
 
 export function useSubscribeToFiber<T, A extends unknown[], R>(
@@ -51,8 +55,10 @@ export function commitSubscription<T, A extends unknown[], R>(
 			}
 		});
 
-		// todo: add deps to queue so that we don't mess things here
+		let prevNotifier = SuspenseDispatcher.notifyingSubscription;
+		SuspenseDispatcher.notifyingSubscription = subscription;
 		flushQueueAndNotifyListeners(fiber);
+		SuspenseDispatcher.notifyingSubscription = prevNotifier;
 	}
 
 	return () => {

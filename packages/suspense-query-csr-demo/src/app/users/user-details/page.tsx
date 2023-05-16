@@ -1,7 +1,7 @@
 import { Link, Outlet, useParams } from "react-router-dom";
 import { API } from "../../api";
 import * as React from "react";
-import { useQueryControl, useQueryData } from "suspense-query";
+import { useQueryData } from "suspense-query";
 import Controls from "../../controls";
 import { UserType } from "../types";
 
@@ -13,8 +13,7 @@ export async function getUserDetails(id: number) {
 export function Component() {
 	let { userId } = useParams();
 
-	let user = useQueryData("getUserDetails", {
-		fn: getUserDetails,
+	let user = useQueryData(getUserDetails, {
 		args: [+userId!],
 	});
 

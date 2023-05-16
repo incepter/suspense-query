@@ -61,7 +61,8 @@ export function useQueryData<T, A extends unknown[], R>(
 		// SUSPENDING tag, so it s clear that it rendered back from suspending and
 		// that we need to sync it to other subscribers.
 		// remove any suspender from the retainers list, we are re-rendering again.
-		// todo: flush updateQueue if there are no retainers
+		// here, if this fiber isn't painted on the screen, process its queue now
+		// if something 'non-data' rendered before, it will know on subscribe ;)
 		subscription.flags |= SUSPENDING;
 		removeSuspendingPromise(fiber.current);
 	}
