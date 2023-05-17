@@ -210,27 +210,21 @@ export function applyUpdate<T, A extends unknown[], R>(
 		queue.next = { args, update, next: null };
 	}
 
-	// eagerly process the queue (it should have one element in theory)
+
+	// if this state fiber has no current in it yet, immediately assign it
 	if (fiber.current === null) {
-		// in cases when the current fiber is suspending,
-		// and this is a pending update, we should bailout the notification
-		// until the subscribers commits back from suspense.
-
-		// if this promise was suspending a component
-		if (suspendingPromises.has(update)) {
-			// now its fiber should be resolved
-			// eg: if no retainer, apply the update
-			// todo: set an interval to check that suspender rendered back
-			// or notify other retainers if any
-
-			if (update.status !== "pending") {
-				// this means that this fiber has no retainer painted on the screen.
-				// so it is safe to apply updates to it
-				return;
-			}
+		processUpdateQueue(fiber);
+	}
+	// this update is supposed to suspend the tree
+	// force flush updateQueue here
+	if (suspendingPromises.has(update)) {
+		// if it is resolving, it should not flush right away and notify listeners
+		// we ll need to wait until the suspender renders back
+		// todo: schedule some artificial notification in case the
+		//  suspended component was thrown away
+		if (update.status !== "pending") {
+			return;
 		}
-		// when fiber.current is null, we need to check if it was ran when mounted
-		// or that its queue has some updates
 		processUpdateQueue(fiber);
 	}
 	flushQueueAndNotifyListeners(fiber);
@@ -242,9 +236,10 @@ export function flushQueueAndNotifyListeners<T, A extends unknown[], R>(
 	let isRendering = SuspenseDispatcher.isRenderPhaseRun;
 
 	if (isRendering) {
+		processUpdateQueue(fiber);
 		let currentTransition = SuspenseDispatcher.startTransition;
 
-		setTimeout(() => {
+		queueMicrotask(() => {
 			let capturedTransition = SuspenseDispatcher.startTransition;
 			SuspenseDispatcher.startTransition = currentTransition;
 			processUpdateQueue(fiber);

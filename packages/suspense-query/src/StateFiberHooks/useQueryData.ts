@@ -37,7 +37,7 @@ export function useQueryData<T, A extends unknown[], R>(
 		throw new Error(`Query has no initial value.`);
 	}
 
-	if (fiber.alternate !== null && fiber.current === null) {
+	if (fiber.alternate !== null) {
 		// this branch means that we will be suspending next
 		// when suspending, this subscription doesn't appear in the listeners Map
 		// because effects aren't triggerred. If it appears and is updated, react
@@ -54,6 +54,7 @@ export function useQueryData<T, A extends unknown[], R>(
 
 	let result = reactUse(fiber.alternate || fiber.current);
 
+	// todo: do the same for error boundary, too
 	if (suspendingPromises.has(fiber.current!)) {
 		// this means that this component rendered successfully after suspending
 		// and his promise resolved.

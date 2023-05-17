@@ -46,11 +46,11 @@ export function commitSubscription<T, A extends unknown[], R>(
 
 	subscription.flags |= COMMITTED;
 
-	if ((subscription.flags &= SUSPENDING)) {
+	if (subscription.flags & SUSPENDING) {
 		subscription.flags &= ~SUSPENDING;
 		// remove other suspending retainers, or just the previous suspending retain
 		fiber.retainers[TRANSITION]?.forEach((sub) => {
-			if ((sub.flags |= SUSPENDING) && !(sub.flags |= COMMITTED)) {
+			if ((sub.flags | SUSPENDING) && !(sub.flags | COMMITTED)) {
 				sub.clean();
 			}
 		});
