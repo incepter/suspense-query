@@ -1,24 +1,42 @@
 import * as React from "react";
-import { COMMITTED, SubscriptionKind } from "../StateFiberFlags";
+import {
+	COMMITTED,
+	SubscriptionKind,
+	SUSPENDING,
+	TRANSITION,
+} from "../StateFiberFlags";
 import { StateFiber, StateFiberListener } from "../types";
-import { retain } from "../StateFiber";
+import {
+	flushQueueAndNotifyListeners,
+	retain,
+	SuspenseDispatcher,
+} from "../StateFiber";
+import { defaultUpdater } from "../shared";
 
 export function useSubscribeToFiber<T, A extends unknown[], R>(
 	kind: SubscriptionKind,
 	fiber: StateFiber<T, A, R>
 ) {
 	let forceUpdate = React.useState(0)[1];
-	let [isPending, _start] = React.useTransition();
-	let subscription = retain(fiber, kind, forceUpdate, _start, isPending);
+	let [, _start] = React.useTransition();
+	let subscription = retain(fiber, kind, forceUpdate, _start);
 
-	React.useLayoutEffect(() => commitSubscription(fiber, subscription));
+	let snapshot = fiber.current;
+	React.useLayoutEffect(() =>
+		commitSubscription(fiber, subscription, snapshot)
+	);
 	return subscription;
 }
 
-function commitSubscription<T, A extends unknown[], R>(
+export function commitSubscription<T, A extends unknown[], R>(
 	fiber: StateFiber<T, A, R>,
-	subscription: StateFiberListener<T, A, R>
+	subscription: StateFiberListener<T, A, R>,
+	snapshot: StateFiber<T, A, R>["current"]
 ) {
+	if (fiber.current !== snapshot) {
+		subscription.update(defaultUpdater);
+		return;
+	}
 	if (!fiber.retainers[subscription.kind]) {
 		fiber.retainers[subscription.kind] = new Map();
 	}
@@ -27,6 +45,22 @@ function commitSubscription<T, A extends unknown[], R>(
 	actualRetainers.set(subscription.update, subscription);
 
 	subscription.flags |= COMMITTED;
+
+	if (subscription.flags & SUSPENDING) {
+		subscription.flags &= ~SUSPENDING;
+		// remove other suspending retainers, or just the previous suspending retain
+		fiber.retainers[TRANSITION]?.forEach((sub) => {
+			if ((sub.flags | SUSPENDING) && !(sub.flags | COMMITTED)) {
+				sub.clean();
+			}
+		});
+
+		let prevNotifier = SuspenseDispatcher.notifyingSubscription;
+		SuspenseDispatcher.notifyingSubscription = subscription;
+		flushQueueAndNotifyListeners(fiber);
+		SuspenseDispatcher.notifyingSubscription = prevNotifier;
+	}
+
 	return () => {
 		subscription.clean();
 		subscription.flags &= ~COMMITTED;

@@ -7,44 +7,63 @@ import { API } from "./app/api";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
-		<Wrapper>
-			<DefaultErrorBoundary>
-				<React.Suspense fallback="LoadingApp">
-					{/*<br />*/}
+		<Wrapper init>
+			{() => (
+				<DefaultErrorBoundary>
+					<section style={{ padding: 8, border: "1px dashed red" }}>
+						<React.Suspense fallback="Loading You App ..">
+							<p>Inside Suspense</p>
 
-					<CounterDemo />
-					<UserId />
+							<CounterDemo />
+							<UserId />
+							<hr />
+							<UserDetailsDemo />
+							<MutationDemo />
+							<section style={{ padding: 8, border: "1px dashed red" }}>
+								<p>Inner Suspense</p>
+								<React.Suspense fallback="Loading...">
+									<SearchDisplayDemoParent />
+									<PendingBar query={delayedIdentity} />
+								</React.Suspense>
+							</section>
+							<SearchDemo />
+						</React.Suspense>
+					</section>
+
+					<section style={{ padding: 8, border: "1px dashed white" }}>
+						<p>Outside Suspense</p>
+						<PendingBar query={delayedIdentity} />
+						<PendingBar query={delayedIdentity} />
+						<PendingBar query={delayedIdentity} />
+						<PendingBar query={delayedIdentity} />
+						{/*<hr />*/}
+						<PendingBar query={counter} />
+						{/*<hr />*/}
+						<PendingBar query={getUserDetails} />
+					</section>
 					<hr />
-					{/*<React.Suspense fallback=".....">*/}
-					<UserDetailsDemo />
-					<MutationDemo />
-					{/*</React.Suspense>*/}
-					<React.Suspense fallback=".....">
-						<SearchDisplayDemoParent />
-					</React.Suspense>
-					<SearchDemo />
-				</React.Suspense>
-				<hr />
-				<PendingBar query={delayedIdentity} />
-				{/*<hr />*/}
-				<PendingBar query={counter} />
-				{/*<hr />*/}
-				<PendingBar query={getUserDetails} />
-			</DefaultErrorBoundary>
+				</DefaultErrorBoundary>
+			)}
 		</Wrapper>
 	</React.StrictMode>
 );
 
-function Wrapper({ init = true, children }) {
+function Wrapper({
+	init = true,
+	children,
+}: {
+	init: boolean;
+	children: () => React.ReactNode;
+}) {
 	let [visible, setVisible] = React.useState(init);
 
 	return (
 		<div>
 			<button onClick={() => setVisible(!visible)}>
-				{visible ? "Hide" : "Show"}
+				{visible ? "Unmount" : "Mount"}
 			</button>
 			<hr />
-			{visible ? children : null}
+			{visible ? children() : null}
 		</div>
 	);
 }
@@ -65,11 +84,11 @@ function CounterDemo() {
 }
 
 function UserDetailsDemo() {
-	console.log("____UseData1Demo_____start");
+	// console.log("____UseData1Demo_____start");
 	let userData = useQueryData(getUserDetails, {
 		initialArgs: [1],
 	});
-	console.log("____UseData1Demo_____end");
+	// console.log("____UseData1Demo_____end");
 
 	return (
 		<div>
@@ -185,6 +204,7 @@ function SearchDisplayDemoParent() {
 
 function PendingBar({ query }: { query: (...args: any[]) => any }) {
 	let { isPending } = useQueryControls(query);
+	// console.log('pending bar', isPending)
 
 	return (
 		<div>

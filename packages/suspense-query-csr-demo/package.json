@@ -1,7 +1,7 @@
 {
   "name": "suspense-query-demo",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "react": "0.0.0-experimental-dd5365878-20230407",
     "react-dom": "0.0.0-experimental-dd5365878-20230407",
     "react-router-dom": "6.10.0",
-    "suspense-query": "workspace:^0.0.1"
+    "suspense-query": "workspace:^0.0.3"
   },
   "devDependencies": {
     "@types/react": "^18.0.28",

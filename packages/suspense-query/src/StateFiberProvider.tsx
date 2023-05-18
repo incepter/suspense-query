@@ -10,7 +10,7 @@ const STATE_FIBER_GLOBAL_PROP = "__STATE_FIBER_CONTEXT__";
 function getOrCreateGlobalContext() {
 	let globalContext = globalThis[STATE_FIBER_GLOBAL_PROP];
 	if (!globalContext) {
-		let context = { cache: new Map() };
+		let context = { cache: new WeakMap() };
 		globalThis[STATE_FIBER_GLOBAL_PROP] = context;
 		return context;
 	}

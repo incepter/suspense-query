@@ -12,7 +12,7 @@ export async function getUsersList() {
 
 export function Component() {
   console.log('UsersPage Render start')
-  let users = useQueryData("getUsersList", {fn: getUsersList});
+  let users = useQueryData(getUsersList);
   console.log('UsersPage Render completed')
   return (
     <details open>

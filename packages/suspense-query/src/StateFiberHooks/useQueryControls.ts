@@ -20,7 +20,7 @@ export function useQueryControls<
 	let cache = useStateFiberCache();
 	let fiber = getOrCreateStateFiber<T, A, R>(cache, query);
 
-	let isPending = !!fiber.alternate;
+	let isPending = !!(fiber.alternate || !fiber.current);
 	let { start } = useSubscribeToFiber(NO_TRANSITION, fiber);
 
 	return React.useMemo(
