@@ -188,10 +188,16 @@ function evictFiberDependencies<T, A extends unknown[], R>(
 		let fn = typeof dep === "function" ? dep : dep.query;
 		let maybeTargetFiber = cache.get(fn);
 		if (maybeTargetFiber) {
-			maybeTargetFiber.current = null;
-			notifyFiberListeners(maybeTargetFiber);
+			evictFiberCurrentState(maybeTargetFiber);
 		}
 	}
+}
+
+export function evictFiberCurrentState<T, A extends unknown[], R>(
+	fiber: StateFiber<T, A, R>,
+) {
+	fiber.current = null;
+	notifyFiberListeners(fiber);
 }
 
 export function applyUpdate<T, A extends unknown[], R>(
