@@ -1,3 +1,4 @@
+export { useEvict } from "./useEvict";
 export { useMutation } from "./useMutation";
 export { useQueryData } from "./useQueryData";
 export { useQueryError } from "./useQueryError";
